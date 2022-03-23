@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}
+Api Management Page
+{% endblock %}
+{% block content %}
+
+<div class="row" style="margin-top:20px; margin-left:20px">
+       <h2>APIs</h2>
+       <br>
+      {% set api_label = ""%}
+      <table class="table table-hover table-light">
+         <thead>
+            <tr>
+               <!-- Your Columns HERE -->
+               <th scope="col">ID</th>
+               <th scope="col">Name</th>
+               <th scope="col" style="text-align:right">Options</th>
+            </tr>
+         </thead>
+         <tbody>
+            <!-- Your rows inside the table HERE: -->
+            {% for api_label in api_label_list %}  
+            {% include 'includes/api_modals.html' %}
+            <tr>
+               <td>{{loop.index0}}</td>
+               <td>{{ api_label }}</td>
+               <td style="text-align:right">
+                  <button class="btn btn-outline btn-danger" data-toggle="modal" data-target="#Modal-RemoveConfirm-{{ api_label }}">Remove</button>
+               </td>
+            </tr>
+            {% endfor %}
+         </tbody>
+      </table>
+      {% include 'includes/api_modals.html' %}
+      <button class="btn btn-outline btn-success" data-toggle="modal" data-target="#Modal-Add">Add new API</button>
+      <br>
+      
+
+{% endblock %}
