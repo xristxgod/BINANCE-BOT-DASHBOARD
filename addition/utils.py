@@ -1,3 +1,5 @@
+import secrets
+import string
 import typing
 import decimal
 from datetime import date
@@ -84,3 +86,6 @@ def timeranges():
         [last_year_start.strftime("%Y-%m-%d"), last_year_end.strftime("%Y-%m-%d")],
         [last_year_start.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")],
     ]
+
+def generate_referral_code():
+    return "".join(secrets.choice(string.ascii_letters + string.digits) for i in range(5))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 from datetime import date
 from datetime import datetime
@@ -25,10 +26,15 @@ from futuresboard import db_manager, scraper
 from futuresboard.forms import *
 from futuresboard.db_manager import *
 
+from addition.utils import generate_referral_code
 from addition.generate_report_v1 import get_report
 from addition.generate_wallet import generate_usdt_trc20
 from addition.tron_wallet import get_wallet_by_user_id
 from addition.is_activate import is_activate
+from addition.referral.ref import is_ref
+from addition.referral.reg_user import search_by_ref_code
+from addition.referral.get_ref import get_ref_info_by_user_id
+from addition.referral.get_ref_for_report import get_report_v2, get_report_v2_to_day
 
 app = Blueprint("main", __name__)
 
@@ -222,6 +228,10 @@ def register_page():
         user_to_create = UserModel(username=form.username.data,
                                    email_address=form.email_address.data,
                                    password=form.password1.data)
+        referrer = form.referral.data
+        s = is_ref(referrer)
+        if not s:
+            referrer = None
         wallet: Dict = generate_usdt_trc20()
 
         db.session.add(user_to_create)
@@ -235,8 +245,20 @@ def register_page():
             user_id=user_to_create.id
         )
 
+        create_referral = ReferralModel(
+            referral_code=generate_referral_code(),
+            referrer=referrer,
+            ref_users='{"lvl_1": [], "lvl_2": [], "lvl_3": [], "lvl_4": []}',
+            user_id=user_to_create.id
+        )
+        db.session.add(create_referral)
+
         db.session.add(user_wallet_create)
         db.session.commit()
+
+        if referrer is not None:
+            print("SEARCH")
+            search_by_ref_code(n_referral=referrer, lvl=1, user_id=user_to_create.id)
 
         login_user(user_to_create)
         flash(f"Account created successfully! You are now logged in as {user_to_create.username}", category='success')
@@ -1541,6 +1563,11 @@ def report_index(active_api_label=""):
         user_id=current_user.id
     )
 
+    try:
+        ref_report = get_report_v2_to_day(user_id=current_user.id)
+    except Exception as error:
+        ref_report = {}
+
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -1562,7 +1589,9 @@ def report_index(active_api_label=""):
         report_HowMuchDidTheBotEarnDuringThePeriod=report["HowMuchDidTheBotEarnDuringThePeriod"],       # Decimal
         report_HowMuchDidYouWithdrawAndWhen=report["HowMuchDidYouWithdrawAndWhen"],                     # List[Dict]
         report_HowMuchDidTheUserTopUpAndWhen=report["HowMuchDidTheUserTopUpAndWhen"],                   # List[Dict]
-        report_Remains=report["Remains"]                                                                # Decimal
+        report_Remains=report["Remains"],                                                               # Decimal
+
+        report_ref=ref_report
     )
 
 @app.route("/report/<start>/<end>", methods=["GET"])
@@ -1662,6 +1691,15 @@ def report_page(start, end, active_api_label=""):
         temp[1].append(round(float(each[0]), 2))
     by_symbol = temp
 
+    try:
+        ref_report = get_report_v2(
+            user_id=current_user.id,
+            start=int(start),
+            end=int(end)
+        )
+        print(ref_report)
+    except Exception as error:
+        ref_report = {}
 
     report: Dict = get_report(
         start=int(start),
@@ -1691,5 +1729,45 @@ def report_page(start, end, active_api_label=""):
         report_HowMuchDidTheBotEarnDuringThePeriod=report["HowMuchDidTheBotEarnDuringThePeriod"],  # Decimal
         report_HowMuchDidYouWithdrawAndWhen=report["HowMuchDidYouWithdrawAndWhen"],  # List[Dict]
         report_HowMuchDidTheUserTopUpAndWhen=report["HowMuchDidTheUserTopUpAndWhen"],  # List[Dict]
-        report_Remains=report["Remains"]  # Decimal
+        report_Remains=report["Remains"],  # Decimal
+
+        report_ref=ref_report
     )
+
+@app.route("/profile/")
+@app.route("/profile")
+@login_required
+def profile():
+    if current_user.status != 'active':
+        return redirect(url_for('main.logout_page'))
+    try:
+        ref_dict = get_ref_info_by_user_id(user_id=current_user.id)
+    except Exception as error:
+        create_referral = ReferralModel(
+            referral_code=generate_referral_code(),
+            ref_users='{"lvl_1": [], "lvl_2": [], "lvl_3": [], "lvl_4": []}',
+            user_id=current_user.id
+        )
+        db.session.add(create_referral)
+        db.session.commit()
+        ref_dict = get_ref_info_by_user_id(user_id=current_user.id)
+
+    wallet = get_wallet_by_user_id(user_id=current_user.id)
+    status = is_activate(user_id=current_user.id)
+    print(f"User: {current_user.username} | Active: {status}")
+    for i in ref_dict["its_lvl_1"]:
+        i["reg_time"] = str(datetime.fromtimestamp(i["reg_time"]))
+
+    return render_template(
+        "profile.html",
+        username=current_user.username,
+        custom=current_app.config["CUSTOM"],
+        your_code=ref_dict["referral_code"],
+        lvl_1=ref_dict["its_lvl_1"],
+        others_lvl=ref_dict["its_others_lvl"],
+
+        wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
+        wallet_status="Active" if wallet["status"] != 0 else "Not activated",
+        wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet["last_activate_time"] != 0 else "Not activated",
+    )
+

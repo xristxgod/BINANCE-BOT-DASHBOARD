@@ -53,22 +53,23 @@
          <ul class="nav navbar-nav navbar-right">
             {% if current_user.is_authenticated %}
             <li class="nav-item">
-               <a class="nav-link" style="color: lawngreen; font-weight: bold">
+               <a class="nav-link" style="color: lawngreen; font-weight: bold" href="{{ url_for("main.profile") }}">
                <i class="fas fa-coins"></i>
                {{ current_user.prettier_budget }}
                </a>
             </li>
             <li class="nav-item">
-               <a class="nav-link">Welcome, {{ current_user.username }}</a>
+               <a class="nav-link" href="{{ url_for("main.profile") }}">Welcome, {{ current_user.username }}</a>
             </li>
             <li class="nav-item">
-               <a class="nav-link" href="{{ url_for('main.logout_page') }}">Logout</a>
+               <a class="nav-link" href="{{ url_for("main.profile") }}">Your wallet: {{ wallet_address }}</a>
             </li>
             <li class="nav-item">
-               <a class="nav-link" href="#">Your wallet: {{ wallet_address }}</a>
+               <a class="nav-link" href="{{ url_for("main.profile") }}">Active: {{ wallet_status }} | Last activation date: {{ wallet_time }}</a>
             </li>
+
             <li class="nav-item">
-               <a class="nav-link" href="#">Active: {{ wallet_status }} | Last activation date: {{ wallet_time }}</a>
+               <a class="nav-link" href="{{ url_for('main.logout_page') }}" style="color: red"><b>Logout</b></a>
             </li>
             {% else %}
             <li class="nav-item ">

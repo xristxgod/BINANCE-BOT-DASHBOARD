@@ -24,6 +24,7 @@ class UserModel(db.Model, UserMixin):
     orders = db.relationship('OrdersModel', backref='user', lazy=True)
     wallets = db.relationship('UserWalletModel', backref='user', lazy=True)
     transactions = db.relationship('TronTransactionModel', backref='user', lazy=True)
+    referrals = db.relationship('ReferralModel', backref='user', lazy=True)
     pass
     
     @property
@@ -105,4 +106,18 @@ class TronTransactionModel(db.Model):
     time = db.Column(db.Integer)
     tx_id = db.Column(db.String(256), nullable=False, unique=True)
     amount = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))
+
+class ReferralModel(db.Model):
+
+    id = db.Column(db.Integer, primary_key=True)
+    referral_code = db.Column(db.String(60), nullable=False, unique=True)
+    referrer = db.Column(db.String(60), nullable=True)
+    ref_users = db.Column(db.String(2048), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))
+
+class ReferralProfitModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lvl = db.Column(db.String(4096), nullable=True)
+    time = db.Column(db.Integer)
     user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))

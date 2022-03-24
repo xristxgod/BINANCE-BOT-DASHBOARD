@@ -1,5 +1,8 @@
+import os
 import decimal
 import logging
+
+from hlp import BASE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +13,6 @@ decimals = decimal.Context()
 decimals.prec = 8
 
 percentage_of_pnl = 1
-db_path = "C:\\Users\\79381\Desktop\\binance-bot-dashboard\\binance-bot-dashboard\\DB\\database.db"
+db_path = os.path.join(BASE_DIR, "database.db")
 
 adminWallet = ""

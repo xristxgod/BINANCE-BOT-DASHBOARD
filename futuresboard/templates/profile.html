@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block autoreload %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block title %}Report{% endblock %}
+{% block content %}
+
+<h1 class="display-1">Welcome, {{ username }} </h1>
+<h3><a class="btn btn-primary" href="{{ url_for("main.api_page") }}"> <-- Back </a></h3>
+<br>
+<p class="h4">Your USDT TRON wallet: <b><kbd>{{ wallet_address }}</kbd></b></p>
+<br>
+
+{% if wallet_status == "Not activated" %}
+    <p class="h4">Subscription status: <kbd style="background-color: red">{{ wallet_status }}</kbd> | Last activation date: {{ wallet_time }}</p>
+{% else %}
+    <p class="h4">Subscription status: <kbd style="background-color: green">{{ wallet_status }}</kbd> | Last activation date: {{ wallet_time }}</p>
+{% endif %}
+
+<br>
+<p class="h4">Your referral code: <kbd><b>{{ your_code }}</b></kbd></p>
+<br>
+<hr>
+<h3 class="display-5">Level №1</h3>
+{% if lvl_1 != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Username</th>
+        <th scope="col">Registration time</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for i in lvl_1 %}
+    <tr>
+        <th scope="row">#</th>
+        <td><b>{{ i["username"] }}</b></td>
+        <td>{{ i["reg_time"] }}</td>
+        <td><b>{{ i["income_for_all_time"] }}</b></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Username</th>
+        <th scope="col">Registration time</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<br>
+<hr>
+<h3 class="display-5">Others level</h3>
+{% if others_lvl != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Level</th>
+        <th scope="col">The number of users</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for i in others_lvl %}
+    <tr>
+        <th scope="row">#</th>
+        <td><b>{{ i["lvl"] }}</b></td>
+        <td>{{ i["user_count"] }}</td>
+        <td><b>{{ i["income_all_time"] }}</b></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Username</th>
+        <th scope="col">Registration time</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+<hr>
+{% endblock %}

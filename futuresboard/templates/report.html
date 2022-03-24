@@ -49,20 +49,20 @@
 </table>
 {% else %}
 <table class="table">
-<thead>
-<tr>
-    <th scope="col">#</th>
-    <th scope="col">Time</th>
-    <th scope="col">Amount</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Amount</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
         <th scope="row">#</th>
         <td>-</td>
         <td>-</td>
     </tr>
-</tbody>
+    </tbody>
 </table>
 {% endif %}
 <br>
@@ -89,24 +89,81 @@
 </table>
 {% else %}
 <table class="table">
-<thead>
-<tr>
-    <th scope="col">#</th>
-    <th scope="col">Time</th>
-    <th scope="col">Amount</th>
-</tr>
-</thead>
-<tbody>
-<tr>
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Amount</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
         <th scope="row">#</th>
         <td>-</td>
         <td>-</td>
     </tr>
-</tbody>
+    </tbody>
 </table>
 {% endif %}
 <br>
+<h3>Profit from referrals:</h3>
+{% if report_ref != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Level №1</th>
+        <th scope="col">Level №2</th>
+        <th scope="col">Level №3</th>
+        <th scope="col">Level №4</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for i in report_ref %}
+    <tr>
+        <th scope="row">#</th>
+        <td>{{ i["time"] }}</td>
+        <td>{{ i["lvl"]["lvl_1"] }}</td>
+        <td>{{ i["lvl"]["lvl_2"] }}</td>
+        <td>{{ i["lvl"]["lvl_3"] }}</td>
+        <td>{{ i["lvl"]["lvl_4"] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Level №1</th>
+        <th scope="col">Level №2</th>
+        <th scope="col">Level №3</th>
+        <th scope="col">Level №4</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+
+<hr>
+<br>
 <h3> Account balance: {{ report_Remains }} </h3>
+
+
+
 
 <script>
     $('input[name="daterange"]').daterangepicker({
