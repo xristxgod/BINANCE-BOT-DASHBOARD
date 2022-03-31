@@ -3,14 +3,8 @@ import typing
 import decimal
 from datetime import datetime
 
-from addition.utils import timeranges
+from addition.utils import timeranges, dict_factory
 from addition.config import decimals, db_path
-
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
 
 def get_users() -> typing.List[typing.Dict]:
     connection = None
@@ -51,7 +45,7 @@ def get_profit_today_by_api_label(api_label: str) -> typing.Union[decimal.Decima
     )
     connection = None
     try:
-        connection = sqlite3.connect("../database.db")
+        connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
         sql = (
             f'SELECT SUM(income) FROM income_model '
@@ -74,7 +68,7 @@ def get_profit_today_by_api_label(api_label: str) -> typing.Union[decimal.Decima
 def get_api_label_list_by_user_id(user_id: int) -> typing.List:
     connection = None
     try:
-        connection = sqlite3.connect("../database.db")
+        connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
         return[i[0] for i in cursor.execute(f"SELECT api_label FROM account_model WHERE user_id={user_id}").fetchall()]
     except Exception as error:
@@ -83,23 +77,77 @@ def get_api_label_list_by_user_id(user_id: int) -> typing.List:
         if connection is not None:
             connection.close()
 
-def inset_new_balance_by_api_label(new_balance: str, api_label: str, user_id: int) -> bool:
+def inset_new_balance(new_balance: str, user_id: int) -> bool:
     connection = None
     try:
-        connection = sqlite3.connect("../database.db")
+        connection = sqlite3.connect(db_path)
         cursor = connection.cursor()
         cursor.execute(
-            (
-                f"INSERT INTO account_model(totalWalletBalance) "
-                f"VALUES ({float(new_balance)}) "
-                f"WHERE api_label='{api_label}' "
-                f"AND user_id={user_id}"
-            )
+            f"UPDATE user_model SET budget={new_balance} WHERE id={user_id}"
         )
         connection.commit()
         return True
     except Exception as error:
         raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_user_balance(user_id: int) -> decimal.Decimal:
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        return decimals.create_decimal(cursor.execute(
+            f"SELECT budget FROM user_model WHERE id='{user_id}'"
+        ).fetchone()[0])
+    except Exception as error:
+        return decimals.create_decimal("0")
+    finally:
+        if connection is not None:
+            connection.close()
+
+def inset_withdraw(ins_time: int, amount: str, user_id: int):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        cursor.execute(
+            f"INSERT INTO withdraw_model (time, amount, user_id) VALUES ({ins_time}, '{amount}', {user_id})"
+        )
+        connection.commit()
+        return True
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_user_info_by_id(user_id: int):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        return cursor.execute(
+            f"SELECT username, email_address AS email FROM user_model WHERE id={user_id}"
+        ).fetchone()
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_user_tg_id_by_user_id(user_id: int):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        return cursor.execute(
+            f"SELECT chat_id FROM telegram_bot_model WHERE user_id={user_id}"
+        ).fetchone()[0]
+    except Exception as error:
+        return None
     finally:
         if connection is not None:
             connection.close()

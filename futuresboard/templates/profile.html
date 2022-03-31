@@ -8,11 +8,15 @@
 <br>
 <p class="h4">Your USDT TRON wallet: <b><kbd>{{ wallet_address }}</kbd></b></p>
 <br>
+<p style="text-align: center;">
+    <img id='barcode' src="https://api.qrserver.com/v1/create-qr-code/?data={{ wallet_address }}" alt="" title="{{ wallet_address }}" width="200" height="200" style=""/>
+</p>
+<br>
 
 {% if wallet_status == "Not activated" %}
-    <p class="h4">Subscription status: <kbd style="background-color: red">{{ wallet_status }}</kbd> | Last activation date: {{ wallet_time }}</p>
+<p class="h4">Subscription status: <kbd style="background-color: red">{{ wallet_status }}</kbd> | Last activation date: {{ wallet_time }}</p>
 {% else %}
-    <p class="h4">Subscription status: <kbd style="background-color: green">{{ wallet_status }}</kbd> | Last activation date: {{ wallet_time }}</p>
+<p class="h4">Subscription status: <kbd style="background-color: green">{{ wallet_status }}</kbd> | Last activation date: {{ wallet_time }}</p>
 {% endif %}
 
 <br>

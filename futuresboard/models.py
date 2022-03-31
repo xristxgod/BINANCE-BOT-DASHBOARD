@@ -22,9 +22,13 @@ class UserModel(db.Model, UserMixin):
     positions = db.relationship('PositionsModel', backref='user', lazy=True)
     accounts = db.relationship('AccountModel', backref='user', lazy=True)
     orders = db.relationship('OrdersModel', backref='user', lazy=True)
+
     wallets = db.relationship('UserWalletModel', backref='user', lazy=True)
     transactions = db.relationship('TronTransactionModel', backref='user', lazy=True)
     referrals = db.relationship('ReferralModel', backref='user', lazy=True)
+    referrals_profit = db.relationship('ReferralProfitModel', backref='user', lazy=True)
+    withdraws = db.relationship('WithdrawModel', backref='user', lazy=True)
+    telegram_bot = db.relationship('TelegramBotModel', backref='user', lazy=True)
     pass
     
     @property
@@ -108,6 +112,12 @@ class TronTransactionModel(db.Model):
     amount = db.Column(db.Integer)
     user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))
 
+class WithdrawModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    time = db.Column(db.Integer)
+    amount = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))
+
 class ReferralModel(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
@@ -120,4 +130,9 @@ class ReferralProfitModel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lvl = db.Column(db.String(4096), nullable=True)
     time = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))
+
+class TelegramBotModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    chat_id = db.Column(db.Integer, nullable=False, unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))

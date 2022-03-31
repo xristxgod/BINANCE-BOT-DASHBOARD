@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import csv
-import json
-import os
 from datetime import date
 from datetime import datetime
 from datetime import timedelta
 from typing import Any, Dict
-import pathlib
 
 import requests
 import ccxt
@@ -17,8 +14,7 @@ from flask import render_template
 from flask import request
 from flask import flash
 from flask.helpers import url_for
-from flask import current_app
-from flask_login import login_user, logout_user, login_required, current_user
+from flask_login import login_user, logout_user, login_required
 from typing_extensions import TypedDict
 from CredentialManager import CredentialManager
 
@@ -27,14 +23,15 @@ from futuresboard.forms import *
 from futuresboard.db_manager import *
 
 from addition.utils import generate_referral_code
-from addition.generate_report_v1 import get_report
-from addition.generate_wallet import generate_usdt_trc20
-from addition.tron_wallet import get_wallet_by_user_id
-from addition.is_activate import is_activate
+from addition.tron_net.generate_wallet import generate_usdt_trc20
+from addition.tron_net.tron_wallet import get_wallet_by_user_id
+from addition.tron_net.is_activate import is_activate
 from addition.referral.ref import is_ref
 from addition.referral.reg_user import search_by_ref_code
 from addition.referral.get_ref import get_ref_info_by_user_id
-from addition.referral.get_ref_for_report import get_report_v2, get_report_v2_to_day
+
+from addition.report.generate_report import get_report_by_all_users
+from addition.config import PDF_INSTRUCTIONS
 
 app = Blueprint("main", __name__)
 
@@ -291,7 +288,8 @@ def login_page():
     return render_template('login.html',
                            coin_list=get_coins(),
                            custom=current_app.config["CUSTOM"],
-                           form=form)
+                           form=form
+                           )
 
 
 @app.route('/logout')
@@ -347,6 +345,7 @@ def api_page(active_api_label=""):
     print(f"User: {current_user.username} | Active: {status}")
     return render_template(
         "apis.html",
+        is_admin=current_user.is_admin == 1,
         api_label_list=get_api_label_list(),
         coin_list=get_coins(active_api_label),
         custom=current_app.config["CUSTOM"],
@@ -518,6 +517,7 @@ def index_page(active_api_label=""):
     print(f"User: {current_user.username} | Active: {status}")
     return render_template(
         "home.html",
+        is_admin=current_user.is_admin == 1,
         coin_list=get_coins(active_api_label),
         totals=totals,
         data=[by_date, by_symbol, total_by_date],
@@ -700,6 +700,7 @@ def dashboard_page(start, end, active_api_label=""):
     print(f"User: {current_user.username} | Active: {status}")
     return render_template(
         "home.html",
+        is_admin=current_user.is_admin == 1,
         coin_list=get_coins(active_api_label),
         totals=totals,
         data=[by_date, by_symbol, total_by_date],
@@ -758,6 +759,7 @@ def positions_page(active_api_label=""):
     return render_template(
         "positions.html",
         coin_list=get_coins(active_api_label),
+        is_admin=current_user.is_admin == 1,
         positions=positions,
         custom=current_app.config["CUSTOM"],
         api_label_list=get_api_label_list(),
@@ -956,6 +958,7 @@ def coin_page(coin, active_api_label=""):
 
     return render_template(
         "coin.html",
+        is_admin=current_user.is_admin == 1,
         coin_list=get_coins(active_api_label),
         coin=coin,
         totals=totals,
@@ -1180,6 +1183,7 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
     return render_template(
         "coin.html",
         coin_list=get_coins(active_api_label),
+        is_admin=current_user.is_admin == 1,
         coin=coin,
         totals=totals,
         summary=[],
@@ -1255,6 +1259,7 @@ def history_page(active_api_label=""):
     return render_template(
         "history.html",
         coin_list=get_coins(active_api_label),
+        is_admin=current_user.is_admin == 1,
         history=history,
         filename="-",
         files=previous_files,
@@ -1369,6 +1374,7 @@ def history_page_timeframe(start, end, active_api_label=""):
     return render_template(
         "history.html",
         coin_list=get_coins(active_api_label),
+        is_admin=current_user.is_admin == 1,
         history=history,
         fname=filename,
         files=previous_files,
@@ -1453,6 +1459,7 @@ def projection_page(active_api_label=""):
     print(f"User: {current_user.username} | Active: {status}")
     return render_template(
         "projection.html",
+        is_admin=current_user.is_admin == 1,
         coin_list=get_coins(active_api_label),
         data=projections,
         custom=current_app.config["CUSTOM"],
@@ -1480,13 +1487,13 @@ def not_found(error):
     )
 
 @app.route("/report", methods=["GET"])
-@app.route("/report/<active_api_label>", methods=["GET"])
 @login_required
-def report_index(active_api_label=""):
+def report_index():
     if current_user.status != 'active':
         return redirect(url_for('main.logout_page'))
-    if active_api_label == "":
-        active_api_label = get_default_api_label()
+    if current_user.is_admin == 0:
+        return redirect(url_for('main.api_page'))
+    active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
     ranges = timeranges()
     daterange = request.args.get("daterange")
@@ -1556,17 +1563,10 @@ def report_index(active_api_label=""):
         temp[1].append(round(float(each[0]), 2))
     by_symbol = temp
 
-    report: Dict = get_report(
+    reports = get_report_by_all_users(
         start=int(start),
-        end=int(end),
-        api_label=active_api_label,
-        user_id=current_user.id
+        end=int(end)
     )
-
-    try:
-        ref_report = get_report_v2_to_day(user_id=current_user.id)
-    except Exception as error:
-        ref_report = {}
 
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -1574,6 +1574,7 @@ def report_index(active_api_label=""):
     return render_template(
         "report.html",
         data=[by_date, by_symbol, total_by_date],
+        is_admin=current_user.is_admin == 1,
         coin_list=get_coins(active_api_label),
         lastupdate=get_lastupdate(active_api_label),
         startdate=startdate,
@@ -1586,12 +1587,7 @@ def report_index(active_api_label=""):
         wallet_status="Active" if wallet["status"] != 0 else "Not activated",
         wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
                                                                                                "last_activate_time"] != 0 else "Not activated",
-        report_HowMuchDidTheBotEarnDuringThePeriod=report["HowMuchDidTheBotEarnDuringThePeriod"],       # Decimal
-        report_HowMuchDidYouWithdrawAndWhen=report["HowMuchDidYouWithdrawAndWhen"],                     # List[Dict]
-        report_HowMuchDidTheUserTopUpAndWhen=report["HowMuchDidTheUserTopUpAndWhen"],                   # List[Dict]
-        report_Remains=report["Remains"],                                                               # Decimal
-
-        report_ref=ref_report
+        reports=reports
     )
 
 @app.route("/report/<start>/<end>", methods=["GET"])
@@ -1691,21 +1687,9 @@ def report_page(start, end, active_api_label=""):
         temp[1].append(round(float(each[0]), 2))
     by_symbol = temp
 
-    try:
-        ref_report = get_report_v2(
-            user_id=current_user.id,
-            start=int(start),
-            end=int(end)
-        )
-        print(ref_report)
-    except Exception as error:
-        ref_report = {}
-
-    report: Dict = get_report(
+    reports = get_report_by_all_users(
         start=int(start),
-        end=int(end),
-        api_label=active_api_label,
-        user_id=current_user.id
+        end=int(end)
     )
 
     wallet = get_wallet_by_user_id(user_id=current_user.id)
@@ -1713,6 +1697,7 @@ def report_page(start, end, active_api_label=""):
     print(f"User: {current_user.username} | Active: {status}")
     return render_template(
         "report.html",
+        is_admin=current_user.is_admin == 1,
         data=[by_date, by_symbol, total_by_date],
         coin_list=get_coins(active_api_label),
         lastupdate=get_lastupdate(active_api_label),
@@ -1726,12 +1711,7 @@ def report_page(start, end, active_api_label=""):
         wallet_status="Active" if wallet["status"] != 0 else "Not activated",
         wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
                                                                                                "last_activate_time"] != 0 else "Not activated",
-        report_HowMuchDidTheBotEarnDuringThePeriod=report["HowMuchDidTheBotEarnDuringThePeriod"],  # Decimal
-        report_HowMuchDidYouWithdrawAndWhen=report["HowMuchDidYouWithdrawAndWhen"],  # List[Dict]
-        report_HowMuchDidTheUserTopUpAndWhen=report["HowMuchDidTheUserTopUpAndWhen"],  # List[Dict]
-        report_Remains=report["Remains"],  # Decimal
-
-        report_ref=ref_report
+        reports=reports
     )
 
 @app.route("/profile/")
@@ -1760,6 +1740,7 @@ def profile():
 
     return render_template(
         "profile.html",
+        is_admin=current_user.is_admin == 1,
         username=current_user.username,
         custom=current_app.config["CUSTOM"],
         your_code=ref_dict["referral_code"],
@@ -1769,5 +1750,6 @@ def profile():
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         wallet_status="Active" if wallet["status"] != 0 else "Not activated",
         wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet["last_activate_time"] != 0 else "Not activated",
+
     )
 

@@ -19,6 +19,7 @@ flask-login
 flask_session_captcha
 Flask-Migrate
 tronpy==0.2.6
-requests==2.27.1
-
-
+flask-apscheduler==1.12.3
+emoji==1.7.0
+Werkzeug==2.0.3
+python-decouple

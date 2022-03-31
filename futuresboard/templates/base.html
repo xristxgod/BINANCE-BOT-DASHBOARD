@@ -122,11 +122,13 @@
                         API Management
                         </a>
                      </li>
+                     {% if is_admin %}
                      <li>
                         <a href="{{ url_for("main.report_index", active_api_label=active_api_label) }}" class="btn align-items-center rounded">
                         Report
                         </a>
                      </li>
+                     {% endif %}
                      <li class="mb-1">
                         <button class="btn btn-toggle align-items-center rounded" data-bs-toggle="collapse" data-bs-target="#activecoins-collapse" aria-expanded="true">
                         Active coins ({{ coin_list['totals']['active'] }})

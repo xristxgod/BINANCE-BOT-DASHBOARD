@@ -20,150 +20,189 @@
     </div>
 </div>
 
-{% if report_HowMuchDidTheBotEarnDuringThePeriod != None  %}
-<h3> The bot has earned: {{ report_HowMuchDidTheBotEarnDuringThePeriod }} </h3>
-{% else %}
-<h3> The bot has earned: 0 </h3>
-{% endif %}
-<br>
-<h3> The bot debited: </h3>
-{% if report_HowMuchDidYouWithdrawAndWhen != []  %}
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">#</th>
-        <th scope="col">Time</th>
-        <th scope="col">Amount</th>
-    </tr>
-    </thead>
-    <tbody>
-
-    {% for i in report_HowMuchDidYouWithdrawAndWhen %}
-    <tr>
-        <th scope="row">#</th>
-        <td>{{ i["time"] }}</td>
-        <td>{{ i["amount"] }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">#</th>
-        <th scope="col">Time</th>
-        <th scope="col">Amount</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <th scope="row">#</th>
-        <td>-</td>
-        <td>-</td>
-    </tr>
-    </tbody>
-</table>
-{% endif %}
-<br>
-<h3>The user deposit:</h3>
-{% if report_HowMuchDidTheUserTopUpAndWhen != []  %}
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">#</th>
-        <th scope="col">Time</th>
-        <th scope="col">Amount</th>
-    </tr>
-    </thead>
-    <tbody>
-
-    {% for i in report_HowMuchDidTheUserTopUpAndWhen %}
-    <tr>
-        <th scope="row">#</th>
-        <td>{{ i["time"] }}</td>
-        <td>{{ i["amount"] }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">#</th>
-        <th scope="col">Time</th>
-        <th scope="col">Amount</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <th scope="row">#</th>
-        <td>-</td>
-        <td>-</td>
-    </tr>
-    </tbody>
-</table>
-{% endif %}
-<br>
-<h3>Profit from referrals:</h3>
-{% if report_ref != []  %}
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">#</th>
-        <th scope="col">Time</th>
-        <th scope="col">Level №1</th>
-        <th scope="col">Level №2</th>
-        <th scope="col">Level №3</th>
-        <th scope="col">Level №4</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for i in report_ref %}
-    <tr>
-        <th scope="row">#</th>
-        <td>{{ i["time"] }}</td>
-        <td>{{ i["lvl"]["lvl_1"] }}</td>
-        <td>{{ i["lvl"]["lvl_2"] }}</td>
-        <td>{{ i["lvl"]["lvl_3"] }}</td>
-        <td>{{ i["lvl"]["lvl_4"] }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<table class="table">
-    <thead>
-    <tr>
-        <th scope="col">#</th>
-        <th scope="col">Time</th>
-        <th scope="col">Level №1</th>
-        <th scope="col">Level №2</th>
-        <th scope="col">Level №3</th>
-        <th scope="col">Level №4</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr>
-        <th scope="row">#</th>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-    </tr>
-    </tbody>
-</table>
-{% endif %}
-
+{% for report in reports %}
 
 <hr>
 <br>
-<h3> Account balance: {{ report_Remains }} </h3>
 
+<h6>Username: {{ report["username"] }}</h6>
+<h6>Balance: {{ report["report"]["balance"] }}</h6>
 
+<h6> The bot debited: </h6>
+{% if report["report"]["profit_period"] != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Bot name</th>
+        <th scope="col">Income</th>
+    </tr>
+    </thead>
+    <tbody>
 
+    {% for income in report["report"]["profit_period"] %}
+    <tr>
+        <th scope="row">#</th>
+        <td>{{ income["name"] }}</td>
+        <td>{{ income["income"] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Bot name</th>
+        <th scope="col">Income</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<h6> Withdraw history: </h6>
+{% if report["report"]["withdraw_history"] != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Amount</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    {% for wit in report["report"]["withdraw_history"] %}
+    <tr>
+        <th scope="row">#</th>
+        <td>{{ wit["time"] }}</td>
+        <td>{{ wit["amount"] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Amount</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<h6> Deposit history: </h6>
+{% if report["report"]["deposit_history"] != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Amount</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    {% for dep in report["report"]["deposit_history"] %}
+    <tr>
+        <th scope="row">#</th>
+        <td>{{ dep["time"] }}</td>
+        <td>{{ dep["amount"] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Amount</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<h6> Referral profit: </h6>
+{% if report["report"]["referral_profit"] != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Level №1</th>
+        <th scope="col">Level №2</th>
+        <th scope="col">Level №3</th>
+        <th scope="col">Level №4</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for ref in report["report"]["referral_profit"] %}
+    <tr>
+        <th scope="row">#</th>
+        <td>{{ ref["time"] }}</td>
+        <td>{{ ref["lvl"]["lvl_1"] }}</td>
+        <td>{{ ref["lvl"]["lvl_2"] }}</td>
+        <td>{{ ref["lvl"]["lvl_3"] }}</td>
+        <td>{{ ref["lvl"]["lvl_4"] }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Time</th>
+        <th scope="col">Level №1</th>
+        <th scope="col">Level №2</th>
+        <th scope="col">Level №3</th>
+        <th scope="col">Level №4</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<br>
+<hr>
+
+{% endfor %}
 
 <script>
     $('input[name="daterange"]').daterangepicker({

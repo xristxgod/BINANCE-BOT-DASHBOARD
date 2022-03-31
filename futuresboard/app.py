@@ -9,6 +9,7 @@ from flask import redirect
 from flask import request
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
+from futuresboard.jobs import register_scheduler
 
 
 app = Flask(__name__)
@@ -36,6 +37,7 @@ def init_app(config):
     app.config.from_mapping(**json.loads(config.json()))
     app.url_map.strict_slashes = False
     db_manager.init_app(app)
+    register_scheduler(app)
     app.before_request(clear_trailing)
     app.register_blueprint(blueprint.app)
 

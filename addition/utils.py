@@ -1,11 +1,17 @@
 import secrets
 import string
+from decimal import Decimal, localcontext
 import typing
 import decimal
 from datetime import date
 from datetime import timedelta
 
 from addition.config import decimals
+
+TIMERS = 10
+SUN = Decimal("1000000")
+MIN_SUN = 0
+MAX_SUN = 2**256 - 1
 
 def dict_factory(cursor, row):
     d = {}
@@ -34,30 +40,13 @@ def get_fee(balance: decimal.Decimal) -> decimal.Decimal:
     else:
         return decimals.create_decimal(8.9)
 
-def is_balance(result: int, token_decimal: int, amount_right: decimal.Decimal = decimals.create_decimal("100")) -> bool:
+def is_balance(balance) -> bool:
     """
     If the balance is not empty, then we will find out the amount of funds in the wallet.
     :param amount_right: The required number of coins in the account.
     :return:
     """
-    balance = result / (10 ** token_decimal)
-    return decimals.create_decimal(balance) >= amount_right
-
-def is_confirm(result: int, token: typing.Dict):
-    """
-    We transfer the token balance and check it.
-    :param result: Balance in integer.
-    :param token: Information about the token.
-    """
-
-    if int(result) > 0:
-        # If the balance is not empty, then we will find out the amount of funds in the wallet.
-        if is_balance(result=result, token_decimal=token["decimal"]):
-            return True
-        else:
-            return False
-    else:
-        return False
+    return decimals.create_decimal(balance) >= 2
 
 def timeranges():
     today = date.today()
@@ -89,3 +78,58 @@ def timeranges():
 
 def generate_referral_code():
     return "".join(secrets.choice(string.ascii_letters + string.digits) for i in range(5))
+
+def from_sun(num):
+    """
+    Helper function that will convert a value in TRX to SUN
+    :param num: Value in TRX to convert to SUN
+    """
+    if num == 0:
+        return 0
+    if num < MIN_SUN or num > MAX_SUN:
+        raise ValueError("Value must be between 1 and 2**256 - 1")
+
+    unit_value = SUN
+
+    with localcontext() as ctx:
+        ctx.prec = 999
+        d_num = Decimal(value=num, context=ctx)
+        result = d_num / unit_value
+
+    return result
+
+def to_sun(num) -> int:
+    """
+    Helper function that will convert a value in TRX to SUN
+    :param num: Value in TRX to convert to SUN
+    """
+    if isinstance(num, int) or isinstance(num, str):
+        d_num = Decimal(value=num)
+    elif isinstance(num, float):
+        d_num = Decimal(value=str(num))
+    elif isinstance(num, Decimal):
+        d_num = num
+    else:
+        raise TypeError("Unsupported type. Must be one of integer, float, or string")
+
+    s_num = str(num)
+    unit_value = SUN
+
+    if d_num == 0:
+        return 0
+
+    if d_num < 1 and "." in s_num:
+        with localcontext() as ctx:
+            multiplier = len(s_num) - s_num.index(".") - 1
+            ctx.prec = multiplier
+            d_num = Decimal(value=num, context=ctx) * 10 ** multiplier
+        unit_value /= 10 ** multiplier
+
+    with localcontext() as ctx:
+        ctx.prec = 999
+        result = Decimal(value=d_num, context=ctx) * unit_value
+
+    if result < MIN_SUN or result > MAX_SUN:
+        raise ValueError("Resulting wei value must be between 1 and 2**256 - 1")
+
+    return int(result)

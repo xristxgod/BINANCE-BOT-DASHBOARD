@@ -1,6 +1,6 @@
 
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, HiddenField
+from wtforms import StringField, PasswordField, SubmitField, HiddenField, SelectField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from futuresboard.models import *
 

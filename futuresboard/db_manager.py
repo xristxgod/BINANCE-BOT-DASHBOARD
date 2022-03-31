@@ -7,7 +7,11 @@ from futuresboard.app import app
 from flask_login import current_user
 from flask_migrate import Migrate
 
+# from addition.config import db_path
+
 app.config["SQLALCHEMY_DATABASE_URI"] = 'sqlite:///../DB/database.db'
+# app.config["SQLALCHEMY_DATABASE_URI"] = 'postgresql://postgres:mamedov00@localhost/binance'
+# app.config["SQLALCHEMY_DATABASE_URI"] = db_path
 app.config['SECRET_KEY'] = '324bef6c5985f7ad7c8527d2'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
