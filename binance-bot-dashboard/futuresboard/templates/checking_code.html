@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}
+Reset Password
+{% endblock %}
+
+{% block body %}
+
+<div class="container">
+    <div class="text-center">
+        <form method="POST" class="form-signin">
+            {{ form.hidden_tag() }}
+            <fieldset>
+                <legend class="border-bottom mb-4">{{ legend }}</legend>
+                <div class="form-group">
+                    {{ form.code.label() }}
+                    {% if form.code.errors %}
+                        {{ form.code(class="form-control form-control-lg is-invalid") }}
+                        {% for error in form.code.errors %}
+                                <spam>{{ error }}</spam>
+                        {% endfor %}
+                    {% else %}
+                    {{ form.code(class="form-control") }}
+                    {% endif %}
+                </div>
+            </fieldset>
+            <br>
+            {{ form.submit(class="btn btn-lg btn-block btn-primary") }}
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+

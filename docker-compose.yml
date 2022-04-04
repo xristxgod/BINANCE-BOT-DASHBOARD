@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+
+  tg_bot:
+    build:
+      context: tg_bot/
+      dockerfile: Dockerfile
+    container_name: tg_bot
+    command: python app.py
+    env_file:
+      - ./.env
+    networks:
+      - binance_bot_services
+    logging:
+      options:
+        max-size: 100m
+
+networks:
+  binance_bot_services:
+    driver: bridge

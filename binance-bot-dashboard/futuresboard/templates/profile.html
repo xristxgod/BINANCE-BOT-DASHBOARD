@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block autoreload %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block title %}Report{% endblock %}
+{% block content %}
+
+<h1 class="display-1">Welcome, {{ username }} </h1>
+<h3><a class="btn btn-primary" href="{{ url_for("main.api_page") }}"> <-- Back </a></h3>
+<br>
+<p class="h4">Your USDT TRON wallet: <b><kbd>{{ wallet_address }}</kbd></b></p>
+<br>
+<p style="text-align: center;">
+    <img id='barcode' src="https://api.qrserver.com/v1/create-qr-code/?data={{ wallet_address }}" alt="" title="{{ wallet_address }}" width="200" height="200" style=""/>
+</p>
+<br>
+
+<br>
+<p>Your referral code: <kbd><b>{{ your_code }}</b></kbd></p>
+
+{% if is_connect %}
+<p>Connect to telegram bot: Connected True | <a href="https://t.me/{{ bot_name[1:] }}" class="link-danger" target="_blank">{{ bot_name }}</a></p>
+<form method="POST" class="form-signin">
+    {{ form.hidden_tag() }}
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <p>Your chat id: <kbd><b> {{ chat_id }}</b></kbd></p>
+        </div>
+        <div class="col-auto">
+            {{ form.submit(class="btn btn-outline btn-danger") }}
+        </div>
+    </div>
+</form>
+{% else %}
+<form method="POST" class="form-signin">
+    {{ form.hidden_tag() }}
+    <fieldset>
+        <p>Connect to telegram bot | <a href="https://t.me/{{ bot_name[1:] }}" class="link-danger" target="_blank">{{ bot_name }}</a></p>
+        <div class="form-group">
+            <div class="row g-3 align-items-center">
+                <div class="col-auto">
+                    {{ form.chat_id.label() }}
+                </div>
+                {% if form.chat_id.errors %}
+                <div class="row g-3 align-items-center">
+                    <div class="col-auto">
+                        {{ form.chat_id(class="form-control form-control-lg is-invalid") }}
+                    </div>
+                </div>
+                {% for error in form.chat_id.errors %}
+                <spam>{{ error }}</spam>
+                {% endfor %}
+                {% else %}
+
+                <div class="col-auto">
+                    {{ form.chat_id(class="form-control") }}
+                </div>
+                <div class="col-auto">
+                    {{ form.submit(class="btn btn-outline btn-success") }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </fieldset>
+    <p> Instruction manual: Go to telegram and call the bot
+        <a href="https://t.me/username_to_id_bot" class="link-danger" target="_blank"><b style="color: red">@username_to_id_bot</b></a>, send him "/start"
+        and then he will return your <b style="color: red">ID</b>. Insert it here and all alerts will be whimsical to it.</p>
+</form>
+{% endif %}
+
+
+{% if is_connect_google %}
+<p> You already have Google Authenticator enabled.</p>
+{% else %}
+
+<form method="POST" class="form-signin">
+    {{ form_connect.hidden_tag() }}
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <label>Connect to Google Authenticator: </label>
+        </div>
+        <div class="col-auto">
+            {{ form_connect.submit(class="btn btn-outline btn-success") }}
+        </div>
+    </div>
+</form>
+{% endif %}
+
+<br>
+<hr>
+<h3 class="display-5">Level №1</h3>
+{% if lvl_1 != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Username</th>
+        <th scope="col">Registration time</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for i in lvl_1 %}
+    <tr>
+        <th scope="row">#</th>
+        <td><b>{{ i["username"] }}</b></td>
+        <td>{{ i["reg_time"] }}</td>
+        <td><b>{{ i["income_for_all_time"] }}</b></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Username</th>
+        <th scope="col">Registration time</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+
+<br>
+<hr>
+<h3 class="display-5">Others level</h3>
+{% if others_lvl != []  %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Level</th>
+        <th scope="col">The number of users</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for i in others_lvl %}
+    <tr>
+        <th scope="row">#</th>
+        <td><b>{{ i["lvl"] }}</b></td>
+        <td>{{ i["user_count"] }}</td>
+        <td><b>{{ i["income_all_time"] }}</b></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<table class="table">
+    <thead>
+    <tr>
+        <th scope="col">#</th>
+        <th scope="col">Username</th>
+        <th scope="col">Registration time</th>
+        <th scope="col">Profit for all time</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+        <th scope="row">#</th>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+    </tr>
+    </tbody>
+</table>
+{% endif %}
+<hr>
+{% endblock %}

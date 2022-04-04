@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}
+Reset Password
+{% endblock %}
+
+{% block body %}
+
+<div class="container">
+    <div class="text-center">
+        <p>Scan the QR-Code in the Google Authenticator app</p>
+        <img id='barcode' src="https://api.qrserver.com/v1/create-qr-code/?data={{ qrcodeData }}" alt="" title="{{ wallet_address }}" width="200" height="200" style=""/>
+        <p>If you can't scan the QR Code, enter this code manually in the app: <b>{{ secret_key }}</b></p>
+    </div>
+</div>
+
+{% endblock %}
+
