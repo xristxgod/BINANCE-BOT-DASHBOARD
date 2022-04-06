@@ -1,0 +1,24 @@
+-r base.txt
+flake8>=4.0.1
+flake8-mypy-fork
+flake8-typing-imports
+mypy>=0.910
+pre-commit>=2.4.0
+types-setuptools
+keyring
+numpy
+ccxt
+pandas
+stdiomask
+termcolor==1.1.0
+pendulum
+tulir-telethon
+keyrings.alt
+pandas-ta
+flask_sqlalchemy
+flask_bcrypt
+flask_wtf
+wtforms[email]
+flask-login
+flask_session_captcha
+Flask-Migrate
