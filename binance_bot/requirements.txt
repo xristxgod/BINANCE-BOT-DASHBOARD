@@ -26,5 +26,4 @@ python-decouple
 flask_mail==0.9.1
 aiohttp
 pyotp==2.6.0
-# Authlib==1.0.0
 

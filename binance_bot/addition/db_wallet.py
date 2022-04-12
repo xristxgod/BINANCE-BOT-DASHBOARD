@@ -217,3 +217,125 @@ def get_user_info_by_user_id(user_id: int) -> typing.Dict:
     finally:
         if connection is not None:
             connection.close()
+
+def get_capital():
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        return cursor.execute("SELECT SUM(budget) as totalCapital FROM user_model WHERE status='active' AND is_admin=0").fetchone()
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_pnl_all_time():
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        data = cursor.execute(
+            f'SELECT SUM(income) as totalIncome FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER";'
+        ).fetchone()
+        return data
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_unrealized_pnl_all_time():
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        data = cursor.execute(
+            f'SELECT SUM(unrealizedProfit) as totalUnrealizedPNL FROM positions_model;'
+        ).fetchone()
+        return data
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_user_budget_by_api_label(api_label: str):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        data = cursor.execute(
+            f"SELECT budget FROM user_model WHERE id=(SELECT user_id FROM account_model WHERE api_label='{api_label}');"
+        ).fetchone()
+        return decimals.create_decimal(data["budget"])
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_users_id() -> typing.List:
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        return [i[0] for i in cursor.execute("SELECT id FROM user_model WHERE status='active' AND is_admin=0").fetchall()]
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_users_info_by_ids_list(ids: typing.Tuple[int]) -> typing.Dict:
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        user_info = cursor.execute((
+            f"SELECT user_model.id, user_model.username, user_model.budget AS balance, user_model.email_address AS email "
+            f"FROM user_model WHERE user_model.id IN {ids};"
+        )).fetchall()
+        # api_info = cursor.execute((
+        #     f"SELECT account_model.user_id, account_model.api_label, account_model.totalWalletBalance "
+        #     f"FROM account_model WHERE account_model.user_id IN {ids};"
+        # )).fetchall()
+        income_info = []
+        for _id in ids:
+            income_info.append(cursor.execute((
+                f"SELECT income_model.api_label, SUM(income_model.income) as totalIncome, income_model.user_id "
+                f"FROM income_model WHERE asset <> 'BNB' AND incomeType <> 'TRANSFER' AND income_model.user_id = {_id};"
+            )).fetchone())
+        return {
+            "userInfo": user_info,
+            # "apiInfo": api_info,
+            "incomeInfo": income_info
+        }
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def get_position_info_by_api_label_and_user_id(api_label: str, user_id: int, coin: str) -> typing.Dict:
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        return cursor.execute((
+            f"SELECT leverage, entryPrice "
+            f"FROM positions_model "
+            f"WHERE api_label='{api_label}' AND user_id={user_id} "
+            f"AND symbol='{coin}'"
+        )).fetchone()
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()

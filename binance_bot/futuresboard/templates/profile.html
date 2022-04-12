@@ -70,7 +70,6 @@
 {% if is_connect_google %}
 <p> You already have Google Authenticator enabled.</p>
 {% else %}
-
 <form method="POST" class="form-signin">
     {{ form_connect.hidden_tag() }}
     <div class="row g-3 align-items-center">
@@ -78,7 +77,7 @@
             <label>Connect to Google Authenticator: </label>
         </div>
         <div class="col-auto">
-            {{ form_connect.submit(class="btn btn-outline btn-success") }}
+            {{ form_connect.submit_connect(class="btn btn-outline btn-success") }}
         </div>
     </div>
 </form>

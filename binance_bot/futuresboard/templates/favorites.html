@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block autoreload %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block title %}Favorites{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h3><i class="fas fa-tachometer-alt"></i> Favorites</h3> <span class="badge bg-secondary"><i class="far fa-clock"></i></span>
+    <div class="btn-toolbar mb-2 mb-md-0">
+    </div>
+</div>
+
+<div class="row g-3 align-items-center">
+    <div class="col-auto">
+        <form method="POST" class="form-signin">
+            {{ form_clear.hidden_tag() }}
+            <div class="col-auto">
+                {{ form_clear.submit_clear(class="btn btn-outline btn-danger") }}
+            </div>
+        </form>
+    </div>
+    <div class="col-auto">
+        <form method="POST" class="form-signin">
+            {{ form_select.hidden_tag() }}
+
+            <div class="col-auto">
+                {{ form_select.submit_select(class="btn btn-outline btn-success") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+
+
+<fieldset>
+    <legend>Select favorites</legend>
+    <div class="row">
+        {% for user in favorites_users_a %}
+        <div class="col-sm-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        {% if user["is_favorite"] %}
+
+                        <input class="form-check-input"  type="checkbox" id="{{ user['id'] }}" name="deactive" onclick="return OptionsSelected(this)" checked/>
+                        <label class="form-check-label">Username: {{ user["username"] }}</label>
+
+                        {% else %}
+
+                        <input class="form-check-input" type="checkbox" id="{{ user['id'] }}" name="active" onclick="return OptionsSelected(this)"/>
+                        <label class="form-check-label">Username: {{ user["username"] }}</label>
+
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</fieldset>
+
+
+<!--When you click on the checkbox, the form is immediately sent and the user is added to favorites.-->
+<script>
+function OptionsSelected(me)
+{
+    const user_id = me.id
+    $.ajax({
+            url: '{{ url_for('main.favorites_page') }}',
+            type: 'POST',
+            data: {
+                user_id: user_id
+            },
+            success: function (response) {
+            },
+            error: function (response) {
+            }
+        });
+}
+</script>
+{% endblock %}

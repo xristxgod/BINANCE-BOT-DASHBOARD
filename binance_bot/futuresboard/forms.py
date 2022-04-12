@@ -47,18 +47,23 @@ class AddApiForm(FlaskForm):
     secret_key = PasswordField(label='Secret Key:', validators=[DataRequired()])
     submit = SubmitField(label='Add')
 
-class AddTelegramBot(FlaskForm):
+class AddTelegramBotForm(FlaskForm):
     chat_id = StringField(label='Your chat id:', validators=[DataRequired()])
     submit = SubmitField(label='Connect')
 
-class RemoveTelegramBot(FlaskForm):
+class RemoveTelegramBotForm(FlaskForm):
     submit = SubmitField(label='Remove')
 
-class ConnectToGoogleAuthenticator(FlaskForm):
-    submit = SubmitField(label='Connect')
+class ConnectToGoogleAuthenticatorForm(FlaskForm):
+    submit_connect = SubmitField(label='Connect')
 
-class CheckingCodeGoogleAuthenticator(FlaskForm):
+class CheckingCodeGoogleAuthenticatorForm(FlaskForm):
     code = StringField(label='Code from the GoogleAuthenticator app.:', validators=[DataRequired()])
     submit = SubmitField(label='Sign in')
-    
+
+class ClearAllFavoritesForm(FlaskForm):
+    submit_clear = SubmitField(label='Delete all favorites')
+
+class SelectAllFavoritesForm(FlaskForm):
+    submit_select = SubmitField(label='Select all favorites')
     

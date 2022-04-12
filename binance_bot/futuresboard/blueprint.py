@@ -33,15 +33,20 @@ from addition.tron_net.is_activate import is_activate
 from addition.referral.ref import is_ref
 from addition.referral.reg_user import search_by_ref_code
 from addition.referral.get_ref import get_ref_info_by_user_id
+from addition.helper.pnl import get_percent_unrealised_pnl
 
-from addition.db_wallet import get_users
-from addition.config import BOT_NAME, ADMIN_IDS, decimals
+from addition.db_wallet import get_users, get_position_info_by_api_label_and_user_id
+from addition.config import BOT_NAME, ADMIN_IDS, decimals, logger
 from addition.report.generate_report import get_report_by_all_users
-from addition.tg_bot.send_to_bot import send_to_user_bot_by_reg
+from addition.report.report_all_period import get_report_for_all_time
+from addition.report.to_excel import write_to_excel
 from addition.google_authenticator.google_authenticator import google_authenticator
 
-app = Blueprint("main", __name__)
+from addition.helper.favourites import FavoritesUsers
+from addition.helper.statistic import get_users_statistic
 
+app = Blueprint("main", __name__)
+favorites = FavoritesUsers()
 
 class CoinsTotals(TypedDict):
     active: int
@@ -225,18 +230,18 @@ def get_api_label_list():
 def register_page():
     form = RegisterForm()
     if form.validate_on_submit():
-        user_to_create = UserModel(username=form.username.data,
-                                   email_address=form.email_address.data,
-                                   password=form.password1.data)
+        user_to_create = UserModel(
+            username=form.username.data,
+            email_address=form.email_address.data,
+            password=form.password1.data
+        )
         referrer = form.referral.data
         s = is_ref(referrer)
         if not s:
             referrer = None
         wallet: Dict = generate_usdt_trc20()
-
         db.session.add(user_to_create)
         db.session.commit()
-
         user_wallet_create = UserWalletModel(
             address=wallet["address"],
             private_key=wallet["private_key"],
@@ -244,7 +249,6 @@ def register_page():
             last_activate_time=0,
             user_id=user_to_create.id
         )
-
         create_referral = ReferralModel(
             referral_code=generate_referral_code(),
             referrer=referrer,
@@ -252,7 +256,6 @@ def register_page():
             user_id=user_to_create.id
         )
         db.session.add(create_referral)
-
         db.session.add(user_wallet_create)
         db.session.commit()
 
@@ -300,7 +303,7 @@ def login_page():
 
 @app.route("/checking-code/<username>", methods=['GET', 'POST'])
 def checking_code(username):
-    form = CheckingCodeGoogleAuthenticator()
+    form = CheckingCodeGoogleAuthenticatorForm()
     if form.validate_on_submit():
         user = UserModel.query.filter_by(username=username).first()
         code = GoogleAuthenticatorModel.query.filter_by(user_id=user.id).first().secret_key
@@ -394,7 +397,7 @@ def reset_token(token):
         token.user_id
     )
     if user is None:
-        flash("That is invalid token or expired. Please try again', 'warning")
+        flash("That is invalid token or expired. Please try again", category="warning")
         return redirect(url_for("main.reset_password"))
     if not is_have_time(ResetPasswordModel.query.filter_by(code=token).first().reg_time):
         flash("The expiration date has expired, please try again.", "warning")
@@ -478,8 +481,7 @@ def api_page(active_api_label=""):
         add_form=add_form,
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet["last_activate_time"] != 0 else "Not activated"
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 @app.route("/", methods=["GET"])
@@ -492,9 +494,11 @@ def index_page(active_api_label=""):
         active_api_label = get_default_api_label()
         if active_api_label == None:
             return redirect(url_for('main.api_page'))
+
     daterange = request.args.get("daterange")
     ranges = timeranges()
     scraper.scrape(active_api_label, app)
+    # active_api_label = "API 1@Artem"
     if daterange is not None:
         daterange = daterange.split(" - ")
         if len(daterange) == 2:
@@ -622,7 +626,6 @@ def index_page(active_api_label=""):
 
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-
     pnl = [format_dp(zero_value(unrealized[0])), format_dp(balance)]
     totals = [
         format_dp(zero_value(total[0])),
@@ -655,8 +658,11 @@ def index_page(active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet["last_activate_time"] != 0 else "Not activated"
+        percent_unrealised_pnl=get_percent_unrealised_pnl(
+            unrealised_pnl=zero_value(unrealized[0]),
+            api_label=active_api_label
+        ),
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -669,6 +675,7 @@ def dashboard_page(start, end, active_api_label=""):
     if active_api_label == "":
         active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
+    # active_api_label = "API 1@Artem"
     ranges = timeranges()
     daterange = request.args.get("daterange")
     if daterange is not None:
@@ -837,9 +844,11 @@ def dashboard_page(start, end, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        percent_unrealised_pnl=get_percent_unrealised_pnl(
+            unrealised_pnl=zero_value(unrealized[0]),
+            api_label=active_api_label
+        ),
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -852,8 +861,10 @@ def positions_page(active_api_label=""):
     if active_api_label == "":
         active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
+    # active_api_label = "API 1@Artem"
     coins = get_coins(active_api_label)
     positions = {}
+
     for coin in coins["active"]:
         if not coin in positions:
             positions[coin] = []
@@ -878,6 +889,7 @@ def positions_page(active_api_label=""):
                 order[7] = datetime.fromtimestamp(order[7] / 1000.0).strftime("%Y-%m-%d %H:%M:%S")
                 all_formated_orders.append(order)
             positions[coin].append([[position], all_formated_orders])
+
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -890,9 +902,7 @@ def positions_page(active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -905,6 +915,7 @@ def coin_page(coin, active_api_label=""):
     if active_api_label == "":
         active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
+    # active_api_label = "API 1@Artem"
     coins = get_coins(active_api_label)
     if coin not in coins["inactive"] and coin not in coins["active"]:
         return (
@@ -957,6 +968,7 @@ def coin_page(coin, active_api_label=""):
     balance = db_manager.query(active_api_label, "SELECT totalWalletBalance FROM account_model", one=True)
     if balance[0] is None:
         totals = ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]]
+        liquidation_price = 0
     else:
 
         todaystart = (
@@ -1077,6 +1089,19 @@ def coin_page(coin, active_api_label=""):
             temp[1].append(each[0])
         by_date = temp
 
+        try:
+            position_info = get_position_info_by_api_label_and_user_id(
+                api_label=active_api_label,
+                user_id=current_user.id,
+                # user_id=2,
+                coin=coin
+            )
+            entry_price = position_info["entryPrice"]
+            leverage = position_info["leverage"]
+            liquidation_price = entry_price - (entry_price / 100 * (100 / leverage))
+        except Exception as error:
+            liquidation_price = 0
+
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -1099,9 +1124,12 @@ def coin_page(coin, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        percent_unrealised_pnl=get_percent_unrealised_pnl(
+            unrealised_pnl=zero_value(unrealized[0]) if totals != ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]] else "-",
+            api_label=active_api_label
+        ),
+        liquidation_price="%.4f" % liquidation_price,
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -1113,6 +1141,7 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
         return redirect(url_for('main.logout_page'))
     if active_api_label == "":
         active_api_label = get_default_api_label()
+    # active_api_label = "API 1@Artem"
     coins = get_coins(active_api_label)
     if coin not in coins["inactive"] and coin not in coins["active"]:
         return (
@@ -1204,6 +1233,7 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
     balance = db_manager.query(active_api_label, "SELECT totalWalletBalance FROM account_model", one=True)
     if balance[0] is None:
         totals = ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]]
+        liquidation_price = 0
     else:
         total = db_manager.query(active_api_label,
                                  'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND symbol = ?',
@@ -1300,6 +1330,18 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
             datetime.now().strftime("%B"),
             zero_value(customframe[0]),
         ]
+        try:
+            position_info = get_position_info_by_api_label_and_user_id(
+                api_label=active_api_label,
+                user_id=current_user.id,
+                # user_id=2,
+                coin=coin
+            )
+            entry_price = position_info["entryPrice"]
+            leverage = position_info["leverage"]
+            liquidation_price = entry_price - (entry_price / 100 * (100 / leverage))
+        except Exception as error:
+            liquidation_price = 0
 
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -1323,9 +1365,13 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        percent_unrealised_pnl=get_percent_unrealised_pnl(
+            unrealised_pnl=zero_value(unrealized[0]) if totals != ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0},
+                                                                   ["-", "-", "-", "-"]] else "-",
+            api_label=active_api_label
+        ),
+        liquidation_price="%.4f" % liquidation_price,
+        favorites_users=len(favorites.get_user_favorite) > 0,
     )
 
 
@@ -1392,9 +1438,7 @@ def history_page(active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -1507,9 +1551,7 @@ def history_page_timeframe(start, end, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -1591,9 +1633,7 @@ def projection_page(active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated"
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 
@@ -1692,6 +1732,11 @@ def report_index():
         start=int(start),
         end=int(end)
     )
+    is_ready_to_download = write_to_excel(
+        start=int(start) // 1000,
+        end=int(end) // 1000,
+        report=reports
+    )
 
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -1709,10 +1754,9 @@ def report_index():
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated",
-        reports=reports
+        is_ready_to_download=is_ready_to_download,
+        reports=reports,
+        favorites_users = len(favorites.get_user_favorite) > 0
     )
 
 @app.route("/report/<start>/<end>", methods=["GET"])
@@ -1816,6 +1860,11 @@ def report_page(start, end, active_api_label=""):
         start=int(start),
         end=int(end)
     )
+    is_ready_to_download = write_to_excel(
+        start=int(start) // 1000,
+        end=int(end) // 1000,
+        report=reports
+    )
 
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -1833,10 +1882,34 @@ def report_page(start, end, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet[
-        #                                                                                        "last_activate_time"] != 0 else "Not activated",
-        reports=reports
+        is_ready_to_download=is_ready_to_download,
+        reports=reports,
+        favorites_users = len(favorites.get_user_favorite) > 0
+    )
+
+@app.route("/report-all-time", methods=["GET", "POST"])
+@login_required
+def report_all_time():
+    if current_user.status != 'active':
+        return redirect(url_for('main.logout_page'))
+    if current_user.is_admin == 0:
+        return redirect(url_for('main.api_page'))
+    active_api_label = get_default_api_label()
+    wallet = get_wallet_by_user_id(user_id=current_user.id)
+    status = is_activate(user_id=current_user.id)
+    print(f"User: {current_user.username} | Active: {status}")
+    report = get_report_for_all_time()
+    return render_template(
+        "report_all_time.html",
+        is_admin=current_user.is_admin == 1,
+        custom=current_app.config["CUSTOM"],
+        coin_list=get_coins(active_api_label),
+        lastupdate=get_lastupdate(active_api_label),
+        api_label_list=get_api_label_list(),
+        active_api_label=active_api_label,
+        report=report,
+        wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
 @app.route("/profile", methods=["GET", "POST"])
@@ -1857,35 +1930,33 @@ def profile():
         ref_dict = get_ref_info_by_user_id(user_id=current_user.id)
 
     user_chat_id = TelegramBotModel.query.filter_by(user_id=current_user.id).first()
-    form = AddTelegramBot() if not user_chat_id else RemoveTelegramBot()
-    if form.validate_on_submit() and not user_chat_id:
-        status = send_to_user_bot_by_reg(
-            chat_id=form.chat_id.data,
-            username=current_user.username
-        )
-        if not status:
-            flash("This id does not exist, we sent a message but did not receive a response. Check that the id is correct and try again", 'danger')
-            return redirect(url_for("main.profile"))
-        tb_user = TelegramBotModel(
-            chat_id=form.chat_id.data,
-            user_id=current_user.id
-        )
-        db.session.add(tb_user)
-        db.session.commit()
-        flash("The bot has been added", 'success')
-        return redirect(url_for("main.profile"))
-    elif form.validate_on_submit() and user_chat_id:
-        form = RemoveTelegramBot()
-        if form.validate_on_submit():
-            TelegramBotModel.query.filter_by(user_id=current_user.id).delete()
+    form = AddTelegramBotForm() if not user_chat_id else RemoveTelegramBotForm()
+    if form.submit.data and form.validate() and not user_chat_id:
+        try:
+            if str(form.chat_id.data) in ADMIN_IDS or int(form.chat_id.data) in ADMIN_IDS:
+                flash("The user with this chat_id is already in the system", category='danger')
+                return redirect(url_for("main.profile"))
+            tb_user = TelegramBotModel(
+                chat_id=form.chat_id.data,
+                user_id=current_user.id
+            )
+            db.session.add(tb_user)
             db.session.commit()
-            flash("The bot has been deleted", 'danger')
+            flash("The bot has been added", category='success')
             return redirect(url_for("main.profile"))
+        except Exception as error:
+            flash("The user with this chat_id is already in the system", category='danger')
+            return redirect(url_for("main.profile"))
+    elif form.submit.data and form.validate() and user_chat_id:
+        TelegramBotModel.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        flash("The bot has been deleted", 'danger')
+        return redirect(url_for("main.profile"))
 
-    form_connect = ConnectToGoogleAuthenticator()
+    form_connect = ConnectToGoogleAuthenticatorForm()
     if GoogleAuthenticatorModel.query.filter_by(user_id=current_user.id).first() is None:
         is_connect_google = False
-        if form_connect.validate_on_submit():
+        if form_connect.submit_connect.data and form_connect.validate():
             secret: typing.Dict = google_authenticator(username=current_user.username)
             create_secret_key = GoogleAuthenticatorModel(
                 user_id=current_user.id,
@@ -1896,8 +1967,9 @@ def profile():
             db.session.add(create_secret_key)
             db.session.commit()
             send_mail_code(current_user, secret_key=secret["secretKey"])
-            flash("Instructions for connecting Google Authenticator have been sent. Check your email.", "success")
-            return redirect(url_for("main.profile"))
+            flash("Instructions for connecting Google Authenticator have been sent. Check your email.", category="success")
+            return redirect(
+                url_for("main.connect_to_google_authenticator", secret_key=secret["secretKey"], _external=True))
     else:
         is_connect_google = True
 
@@ -1918,8 +1990,6 @@ def profile():
         others_lvl=ref_dict["its_others_lvl"],
 
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        # wallet_status="Active" if wallet["status"] != 0 else "Not activated",
-        # wallet_time=datetime.fromtimestamp(int(str(wallet["last_activate_time"])[:10])) if wallet["last_activate_time"] != 0 else "Not activated",
         chat_id=user_chat_id.chat_id if user_chat_id is not None else 0,
         form=form,
         is_connect=True if user_chat_id else False,
@@ -1935,6 +2005,9 @@ def connect_to_google_authenticator(secret_key):
     if current_user.status != 'active':
         return redirect(url_for('main.logout_page'))
     t = GoogleAuthenticatorModel.query.filter_by(secret_key=secret_key).first()
+    if current_user.id != t.user_id:
+        flash("This is not your profile", 'success')
+        return redirect(url_for('main.profile'))
     return render_template(
         "connect_to_google_authenticator.html",
         coin_list=get_coins(),
@@ -1945,10 +2018,111 @@ def connect_to_google_authenticator(secret_key):
 
 @app.route("/risk-agreement")
 def risk_agreement():
+    return redirect("https://docs.google.com/document/d/1y6DUlcu1TnsR1rzvcLceIXu2-dAeg3ba/edit?usp=sharing&ouid=117361047904024480236&rtpof=true&sd=true", code=302)
+
+@app.route("/favorites", methods=["GET", "POST"])
+def favorites_page():
+    if current_user.status != 'active':
+        return redirect(url_for('main.logout_page'))
+    if current_user.is_admin == 0:
+        return redirect(url_for('main.api_page'))
+    active_api_label = get_default_api_label()
+    form_clear = ClearAllFavoritesForm()
+    form_select = SelectAllFavoritesForm()
+    try:
+        if form_clear.submit_clear.data and form_clear.validate():
+            favorites.clear_favorites_users()
+            flash("All users have been added to favorites!", category="danger")
+            return redirect(url_for("main.favorites_page"))
+        if form_select.submit_select.data and form_select.validate():
+            favorites.select_all_users()
+            flash("All users have been added to favorites!", category="success")
+            return redirect(url_for("main.favorites_page"))
+    except Exception as error:
+        flash("Something went wrong!", category="danger")
+        return redirect(url_for("main.favorites_page"))
+
+    form_user_id = request.form.get('user_id')
+    if form_user_id is not None:
+        status = favorites.change_to_favorites(user_id=int(form_user_id))
+        if status == "add":
+            logger.error(f"ID: {form_user_id} | The user has been added to favorites!")
+        elif status == "del":
+            logger.error(f"ID: {form_user_id} | The user has been removed from favorites!")
+        else:
+            logger.error(f"ID: {form_user_id} | An error has occurred!!!")
+        return redirect(url_for("main.favorites_page"))
+
+    users = get_users()
+    favorites_users_a = []
+    for user in users:
+        if len(favorites.get_user_favorite) > 0:
+            if favorites.is_in_favorites(user_id=user["id"]):
+                favorites_users_a.append(
+                    {"id": user["id"], "username": user["username"], "is_favorite": True}
+                )
+            else:
+                favorites_users_a.append(
+                    {"id": user["id"], "username": user["username"], "is_favorite": False}
+                )
+        else:
+            favorites_users_a.append(
+                {"id": user["id"], "username": user["username"], "is_favorite": False}
+            )
+
+    wallet = get_wallet_by_user_id(user_id=current_user.id)
+    status = is_activate(user_id=current_user.id)
+    print(f"User: {current_user.username} | Active: {status}")
+
     return render_template(
-        "risk.html"
+        "favorites.html",
+        is_admin=current_user.is_admin == 1,
+        custom=current_app.config["CUSTOM"],
+        coin_list=get_coins(active_api_label),
+        lastupdate=get_lastupdate(active_api_label),
+        api_label_list=get_api_label_list(),
+        active_api_label=active_api_label,
+        favorites_users_a=favorites_users_a,
+        wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
+
+        form_clear=form_clear,
+        form_select=form_select,
+
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
 
+@app.route("/users-statistic")
+def users_statistic():
+    if current_user.status != 'active':
+        return redirect(url_for('main.logout_page'))
+    if current_user.is_admin == 0:
+        return redirect(url_for('main.api_page'))
+    active_api_label = get_default_api_label()
+
+    favorites_users = favorites.get_user_favorite
+    if len(favorites_users) == 0:
+        flash("Choose your favorites!", category="success")
+        return redirect(url_for("main.favorites_page"))
+    users_statistic = get_users_statistic(ids=favorites_users)
+
+    wallet = get_wallet_by_user_id(user_id=current_user.id)
+    status = is_activate(user_id=current_user.id)
+    print(f"User: {current_user.username} | Active: {status}")
+
+    return render_template(
+        "statistic.html",
+        is_admin=current_user.is_admin == 1,
+        custom=current_app.config["CUSTOM"],
+        coin_list=get_coins(active_api_label),
+        lastupdate=get_lastupdate(active_api_label),
+        api_label_list=get_api_label_list(),
+        active_api_label=active_api_label,
+        wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
+
+        users_statistic=users_statistic,
+
+        favorites_users=len(favorites.get_user_favorite) > 0
+    )
 # <<<-------------------------------------------->>> APIS <<<-------------------------------------------------------->>>
 
 @app.route("/reset-password-api-route", methods=["POST"])
@@ -1982,7 +2156,6 @@ def reset_password_for_user_telebot():
 
 @app.route("/get-user-by-chat-id", methods=["POST"])
 def get_user_by_chat_id_for_user_telebot():
-    # message "name_user" | is_admin: True or False
     if request.method == "POST":
         if not request.json or "chatID" not in request.json:
             return jsonify({"message": False})
@@ -1993,7 +2166,7 @@ def get_user_by_chat_id_for_user_telebot():
             user = UserModel.query.get(user_id.user_id)
             if user:
                 is_admin = False
-                if request.json["chatID"] in ADMIN_IDS or user.is_admin == 1:
+                if str(request.json["chatID"]) in ADMIN_IDS or user.is_admin == 1:
                     is_admin = True
                 return jsonify({
                     "message": user.username,
@@ -2019,16 +2192,13 @@ def get_balance_by_chat_id_for_user_telebot():
 
 @app.route("/get-info_s-by-chat-id", methods=["POST"])
 def get_info_s_by_chat_id_for_admin_telebot():
-    # id message: [{"username": "", "balance": ""}]
     if request.method == "POST":
         if not request.json or "chatID" not in request.json:
             return jsonify({"message": False})
         else:
-            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
-            if user_id is None:
+            if str(request.json["chatID"]) not in ADMIN_IDS:
                 return jsonify({"message": "Not found"})
-            user = UserModel.query.get(user_id.user_id)
-            if request.json["chatID"] in ADMIN_IDS or user.is_admin == 1:
+            if str(request.json["chatID"]) in ADMIN_IDS:
                 res = []
                 for user in get_users():
                     if decimals.create_decimal(user["budget"]) > 0:

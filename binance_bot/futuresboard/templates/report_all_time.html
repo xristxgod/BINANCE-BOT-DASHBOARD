@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block autoreload %}<meta http-equiv="refresh" content="60">{% endblock %}
+{% block title %}Platform report for all time{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h3><i class="fas fa-tachometer-alt"></i>Platform report for all time</h3> <span class="badge bg-secondary"></span>
+</div>
+
+<p class="h4">Number of active users: {{ report["activeUsers"] }}</p>
+<p class="h4">The total capital of bots: {{ report["totalCapital"] }}</p>
+<p class="h4">Total Income: {{ report["totalIncome"] }}</p>
+<p class="h4">Total Unrealized PNL: {{ report["totalUnrealizedPNL"] }}</p>
+{% endblock %}

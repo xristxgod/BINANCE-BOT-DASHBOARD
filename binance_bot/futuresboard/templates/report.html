@@ -7,6 +7,15 @@
     <h3><i class="fas fa-tachometer-alt"></i> Report</h3> <span class="badge bg-secondary"><i class="far fa-clock"></i></span>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
+        {% if is_ready_to_download %}
+        <a href="{{ url_for('static', filename='report.xlsx') }}" download="report.xlsx">
+            <button type="button" class="btn btn-primary">
+                Download to Excel
+            </button>
+        </a>
+        {% endif %}
+        </div>
+        <div class="btn-group me-2">
             <form method="GET" name="daterangeform">
                 <div class="input-group input-group-sm">
                     <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
@@ -28,7 +37,7 @@
 <h6>Username: {{ report["username"] }}</h6>
 <h6>Balance: {{ report["report"]["balance"] }}</h6>
 
-<h6> The bot debited: </h6>
+<h6> Bots revenue: </h6>
 {% if report["report"]["profit_period"] != []  %}
 <table class="table">
     <thead>

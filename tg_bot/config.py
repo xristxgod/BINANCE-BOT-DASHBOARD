@@ -1,13 +1,26 @@
 import os
 import decimal
 import logging
+import emoji
 
 decimals = decimal.Context()
 decimals.prec = 8
 
-TOKEN = os.getenv("TOKEN", "5283221517:AAGx3HIayIo9kKpaHlQlM85TCZyygqr5fq8")
-SENDER_EMAIL = os.getenv("SENDER_EMAIL", "xrist88b@gmail.com")
-SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "mamedov00")
-API_URL = os.getenv("API_URL", "http://192.168.0.193/")
+TOKEN = os.getenv("TOKEN", "")
+ADMIN_IDS = os.getenv("ADMIN_IDS", "1111,").split(",")
+SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
+SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "")
+API_URL = os.getenv("API_URL", "")
+
+SYMBOLS = {
+    "moneyBank": emoji.emojize(":money_bag:"),
+    "whiteLargeSquare": emoji.emojize(":white_large_square:"),
+    "creditCard": emoji.emojize(":credit_card:"),
+    "email": emoji.emojize(":envelope_with_arrow:"),
+    "unlock": emoji.emojize(":unlocked:"),
+    "lock": emoji.emojize(":locked:"),
+    "admin": emoji.emojize(":globe_with_meridians:"),
+    "user": emoji.emojize(":bust_in_silhouette:"),
+}
 
 logger = logging.getLogger(__name__)

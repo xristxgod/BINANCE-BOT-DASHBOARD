@@ -75,8 +75,8 @@
             <a href="{{ url_for("main.positions_page", active_api_label=active_api_label) }}">
                 <div class="card text-center">
                   <div class="card-body">
-                    <h5 class="card-title">${{ totals[7][0] }}</h5>
-	            <p class="card-text">&nbsp;</p>
+                    <h5 class="card-title">{{ percent_unrealised_pnl }}%</h5>
+	            <p class="card-text">${{ totals[7][0] }}</p>
                   </div>
                   <div class="card-footer text-muted">
                     Unrealised PnL

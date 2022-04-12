@@ -1,0 +1,16 @@
+{
+	"EXCHANGE": "binance",
+	"PORT": 80,
+	"AUTO_SCRAPE_INTERVAL": 300,
+	"DISABLE_AUTO_SCRAPE": true,
+	"CUSTOM": {
+		"NAVBAR_TITLE": "Futuresboard",
+		"NAVBAR_BG": "bg-dark",
+		"PROJECTIONS": [
+			1.003,
+			1.005,
+			1.01,
+			1.012
+		]
+	}
+}

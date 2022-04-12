@@ -1,6 +1,6 @@
 import json
 import typing
-from addition.config import USERS_FILE, logger
+from addition.config import USERS_FILE_PATH, logger
 
 
 class JsonDB:
@@ -8,14 +8,14 @@ class JsonDB:
     @staticmethod
     def get_file():
         try:
-            with open(USERS_FILE, "r", encoding="utf-8") as file:
+            with open(USERS_FILE_PATH, "r", encoding="utf-8") as file:
                 return json.loads(file.read())
         except json.decoder.JSONDecodeError as error:
             return []
 
     @staticmethod
     def post_file(values: typing.List[typing.Dict]):
-        with open(USERS_FILE, "w", encoding="utf-8") as file:
+        with open(USERS_FILE_PATH, "w", encoding="utf-8") as file:
             file.write(json.dumps(values))
         return True
 

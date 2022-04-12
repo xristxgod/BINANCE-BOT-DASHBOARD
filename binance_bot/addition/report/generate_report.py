@@ -12,8 +12,8 @@ def get_referral_profit(user_id: int, start: int, end: int):
         f"SELECT time, lvl "
         f"FROM referral_profit_model "
         f"WHERE user_id={user_id} "
-        f"AND time >= {start} "
-        f"AND time <= {end}"
+        f"AND time >= {start // 1000} "
+        f"AND time <= {end // 1000};"
     )
     connection = None
     try:
@@ -117,7 +117,7 @@ def get_deposit_history(start: int, end: int, user_id: int) -> typing.List[typin
         cursor = connection.cursor()
         result = cursor.execute(
             (
-                'SELECT time, tx_id, amount FROM tron_transaction_model '
+                'SELECT time, amount FROM tron_transaction_model '
                 'WHERE time >= {} '
                 'AND time <= {} '
                 'AND user_id = {}'
