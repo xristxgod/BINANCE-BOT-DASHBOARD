@@ -7,7 +7,7 @@ decimals = decimal.Context()
 decimals.prec = 8
 
 TOKEN = os.getenv("TOKEN", "")
-ADMIN_IDS = os.getenv("ADMIN_IDS", "1111,").split(",")
+ADMIN_IDS = os.getenv("ADMIN_IDS", ",").split(",")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "")
 API_URL = os.getenv("API_URL", "")

@@ -33,7 +33,10 @@
 <form method="POST" class="form-signin">
     {{ form.hidden_tag() }}
     <fieldset>
-        <p>Connect to telegram bot | <a href="https://t.me/{{ bot_name[1:] }}" class="link-danger" target="_blank">{{ bot_name }}</a></p>
+        <p>1) Connect to telegram bot | <a href="https://t.me/{{ bot_name[1:] }}" class="link-danger" target="_blank">{{ bot_name }}</a></p>
+        <p>2) Instruction manual: Go to telegram and call the bot
+        <a href="https://t.me/username_to_id_bot" class="link-danger" target="_blank"><b style="color: red">@username_to_id_bot</b></a>, send him "/start"
+        and then he will return your <b style="color: red">ID</b>. Insert it here and all alerts will be whimsical to it.</p>
         <div class="form-group">
             <div class="row g-3 align-items-center">
                 <div class="col-auto">
@@ -60,14 +63,12 @@
             {% endif %}
         </div>
     </fieldset>
-    <p> Instruction manual: Go to telegram and call the bot
-        <a href="https://t.me/username_to_id_bot" class="link-danger" target="_blank"><b style="color: red">@username_to_id_bot</b></a>, send him "/start"
-        and then he will return your <b style="color: red">ID</b>. Insert it here and all alerts will be whimsical to it.</p>
 </form>
 {% endif %}
 
 
 {% if is_connect_google %}
+    <p>================Google 2FA================</p>
 <p> You already have Google Authenticator enabled.</p>
 {% else %}
 <form method="POST" class="form-signin">

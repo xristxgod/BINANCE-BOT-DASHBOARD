@@ -34,6 +34,12 @@ Api Management Page
       {% include 'includes/api_modals.html' %}
       <button class="btn btn-outline btn-success" data-toggle="modal" data-target="#Modal-Add">Add new API</button>
       <br>
-      
-
+    <div class="checkbox mb-3">
+          <a href="{{ url_for('static', filename='MyBotSetupInstructions.pdf') }}" download="MyBotSetupInstructions.pdf">
+            <button type="button" class="btn btn-secondary" style="width: 100%; text-align: center; margin-top: 20px">
+                Download instructions
+            </button>
+          </a>
+    </div>
+</div>
 {% endblock %}

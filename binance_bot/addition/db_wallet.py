@@ -224,7 +224,7 @@ def get_capital():
         connection = sqlite3.connect(db_path)
         connection.row_factory = dict_factory
         cursor = connection.cursor()
-        return cursor.execute("SELECT SUM(budget) as totalCapital FROM user_model WHERE status='active' AND is_admin=0").fetchone()
+        return cursor.execute("SELECT SUM(totalWalletBalance) as totalCapital FROM account_model").fetchone()
     except Exception as error:
         raise error
     finally:

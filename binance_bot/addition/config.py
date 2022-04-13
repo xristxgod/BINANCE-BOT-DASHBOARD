@@ -47,5 +47,5 @@ BOT_NAME = config("BOT_NAME", "")
 USERS_FILE_PATH = os.path.join(BASE_FILE, "users_file.json")
 USERS_TO_FAVORITES_FILE_PATH = os.path.join(BASE_FILE, "favorites.json")
 
-PDF_FILE_PATH = os.path.join(BASE_STATIC, "instructions.pdf")
+PDF_FILE_PATH = os.path.join(BASE_STATIC, "MyBotSetupInstructions.pdf")
 EXCEL_FILE_PATH = os.path.join(BASE_STATIC, "report.xlsx")

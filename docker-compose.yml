@@ -9,7 +9,7 @@ services:
     container_name: tg_bot
     command: python app.py
     env_file:
-      - ./.env
+      - ./binance_bot/.env
     networks:
       - binance_bot_services
     logging:
