@@ -33,9 +33,15 @@ from addition.tron_net.is_activate import is_activate
 from addition.referral.ref import is_ref
 from addition.referral.reg_user import search_by_ref_code
 from addition.referral.get_ref import get_ref_info_by_user_id
-from addition.helper.pnl import get_percent_unrealised_pnl
+from addition.helper.pnl import get_percent_unrealised_pnl, get_percent_unrealised_pnl_for_all
 
-from addition.db_wallet import get_users, get_position_info_by_api_label_and_user_id
+from addition.db_wallet import (
+    get_users, get_position_info_by_api_label_and_user_id,
+    get_total_wallet_balance_by_users_ids, get_total_sum_income_by_users_ids,
+    get_time_sum_income_by_users_ids, get_total_unrealized_pnl_by_users_ids,
+    get_all_fees_by_users_ids, get_income_by_date_and_users_ids,
+    get_income_by_symbol_and_users_ids, get_custom_frame_by_users_ids
+)
 from addition.config import BOT_NAME, ADMIN_IDS, decimals, logger
 from addition.report.generate_report import get_report_by_all_users
 from addition.report.report_all_period import get_report_for_all_time
@@ -498,7 +504,6 @@ def index_page(active_api_label=""):
     daterange = request.args.get("daterange")
     ranges = timeranges()
     scraper.scrape(active_api_label, app)
-    # active_api_label = "API 1@Artem"
     if daterange is not None:
         daterange = daterange.split(" - ")
         if len(daterange) == 2:
@@ -544,7 +549,6 @@ def index_page(active_api_label=""):
             datetime.combine(datetime.fromisoformat(ranges[4][1]), datetime.max.time()).timestamp()
             * 1000
     )
-
     start = (
             datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp()
             * 1000
@@ -2021,6 +2025,7 @@ def risk_agreement():
     return redirect("https://docs.google.com/document/d/1y6DUlcu1TnsR1rzvcLceIXu2-dAeg3ba/edit?usp=sharing&ouid=117361047904024480236&rtpof=true&sd=true", code=302)
 
 @app.route("/favorites", methods=["GET", "POST"])
+@login_required
 def favorites_page():
     if current_user.status != 'active':
         return redirect(url_for('main.logout_page'))
@@ -2091,20 +2096,108 @@ def favorites_page():
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
-@app.route("/users-statistic")
+@app.route("/users-statistic", methods=["GET"])
+@login_required
 def users_statistic():
     if current_user.status != 'active':
         return redirect(url_for('main.logout_page'))
     if current_user.is_admin == 0:
         return redirect(url_for('main.api_page'))
-    active_api_label = get_default_api_label()
-
     favorites_users = favorites.get_user_favorite
     if len(favorites_users) == 0:
         flash("Choose your favorites!", category="success")
         return redirect(url_for("main.favorites_page"))
-    users_statistic = get_users_statistic(ids=favorites_users)
 
+    daterange = request.args.get("daterange")
+    ranges = timeranges()
+    if daterange is not None:
+        daterange = daterange.split(" - ")
+        if len(daterange) == 2:
+            try:
+                start_date, end_date = daterange[0], daterange[1]
+                return redirect(url_for("main.users_statistic_page", start=start_date, end=end_date))
+            except Exception:
+
+                pass
+    today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
+    today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
+
+    week_start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
+    week_end = (datetime.combine(datetime.fromisoformat(ranges[2][1]), datetime.max.time()).timestamp() * 1000)
+
+    month_start = (datetime.combine(datetime.fromisoformat(ranges[4][0]), datetime.min.time()).timestamp() * 1000)
+    month_end = (datetime.combine(datetime.fromisoformat(ranges[4][1]), datetime.max.time()).timestamp() * 1000)
+
+    start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
+    end = (datetime.combine(datetime.fromisoformat(ranges[2][1]), datetime.max.time()).timestamp() * 1000)
+
+    start_date, end_date = ranges[2][0], ranges[2][1]
+
+    balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
+    total = get_total_sum_income_by_users_ids(users_ids=tuple(favorites_users))
+    today = get_time_sum_income_by_users_ids(
+        users_ids=tuple(favorites_users), start=int(today_start), end=int(today_end)
+    )
+    week = get_time_sum_income_by_users_ids(
+        users_ids=tuple(favorites_users), start=int(week_start), end=int(week_end)
+    )
+    month = get_time_sum_income_by_users_ids(
+        users_ids=tuple(favorites_users), start=int(month_start), end=int(month_end)
+    )
+    unrealized = get_total_unrealized_pnl_by_users_ids(users_ids=tuple(favorites_users))
+    all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
+
+    by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+    by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+
+    fees = {"USDT": 0, "BNB": 0}
+    temp_total: tuple[list[float], list[float]] = ([], [])
+    profit_period = balance - zero_value(week)
+    temp: tuple[list[float], list[float]] = ([], [])
+    for each in by_date:
+        temp[0].append(round(float(each[1]), 2))
+        temp[1].append(each[0])
+        temp_total[1].append(each[0])
+        temp_total[0].append(round(profit_period + float(each[1]), 2))
+        profit_period += float(each[1])
+    by_date = temp
+    total_by_date = temp_total
+
+    temp = ([], [])
+    for each in by_symbol:
+        temp[0].append(each[1])
+        temp[1].append(round(float(each[0]), 2))
+    by_symbol = temp
+
+    if balance == 0.0:
+        percentages = ["-", "-", "-", "-"]
+    else:
+        percentages = [
+            format_dp(zero_value(today) / balance * 100),
+            format_dp(zero_value(week) / balance * 100),
+            format_dp(zero_value(month) / balance * 100),
+            format_dp(zero_value(total) / balance * 100),
+        ]
+    for row in all_fees:
+        fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
+
+    pnl = [format_dp(zero_value(unrealized)), format_dp(balance)]
+    totals = [
+        format_dp(zero_value(total)),
+        format_dp(zero_value(today)),
+        format_dp(zero_value(week)),
+        format_dp(zero_value(month)),
+        ranges[3],
+        fees,
+        percentages,
+        pnl,
+        datetime.now().strftime("%B"),
+        zero_value(week),
+        len(by_symbol[0]),
+    ]
+
+    active_api_label = get_default_api_label()
+    users_statistic_list = get_users_statistic(ids=favorites_users)
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2112,17 +2205,155 @@ def users_statistic():
     return render_template(
         "statistic.html",
         is_admin=current_user.is_admin == 1,
-        custom=current_app.config["CUSTOM"],
         coin_list=get_coins(active_api_label),
-        lastupdate=get_lastupdate(active_api_label),
+        totals=totals,
+        data=[by_date, by_symbol, total_by_date],
+        timeframe="week",
+        startdate=start_date,
+        enddate=end_date,
+        timeranges=ranges,
+        custom=current_app.config["CUSTOM"],
         api_label_list=get_api_label_list(),
-        active_api_label=active_api_label,
+        lastupdate=get_lastupdate(active_api_label),
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-
-        users_statistic=users_statistic,
-
+        users_statistic=users_statistic_list,
+        percent_unrealised_pnl=get_percent_unrealised_pnl_for_all(
+            unrealised_pnl=zero_value(unrealized),
+            users_ids=tuple(favorites_users)
+        ),
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
+@app.route("/users-statistic/<start>/<end>", methods=["GET"])
+@login_required
+def users_statistic_page(start, end):
+    if current_user.status != 'active':
+        return redirect(url_for('main.logout_page'))
+    if current_user.is_admin == 0:
+        return redirect(url_for('main.api_page'))
+    favorites_users = favorites.get_user_favorite
+    if len(favorites_users) == 0:
+        flash("Choose your favorites!", category="success")
+        return redirect(url_for("main.favorites_page"))
+
+    daterange = request.args.get("daterange")
+    ranges = timeranges()
+    if daterange is not None:
+        daterange = daterange.split(" - ")
+        if len(daterange) == 2:
+            try:
+                start = (datetime.combine(datetime.fromisoformat(daterange[0]), datetime.min.time()).timestamp() * 1000)
+                end = (datetime.combine(datetime.fromisoformat(daterange[1]), datetime.max.time()).timestamp() * 1000)
+                start_date, end_date = daterange[0], daterange[1]
+                return redirect(url_for("main.users_statistic_page", start=start_date, end=end_date))
+            except Exception:
+                return redirect(url_for("main.users_statistic_page", start=start, end=end))
+    try:
+        start_date, end_date = start, end
+        start = (datetime.combine(datetime.fromisoformat(start), datetime.min.time()).timestamp() * 1000)
+        end = datetime.combine(datetime.fromisoformat(end), datetime.max.time()).timestamp() * 1000
+    except Exception:
+        start_date, end_date = ranges[2][0], ranges[2][1]
+        return redirect(url_for("main.dashboard_page", start=start_date, end=end_date))
+
+    today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
+    today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
+    week_start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
+    week_end = (datetime.combine(datetime.fromisoformat(ranges[2][1]), datetime.max.time()).timestamp() * 1000)
+    month_start = (datetime.combine(datetime.fromisoformat(ranges[4][0]), datetime.min.time()).timestamp() * 1000)
+    month_end = (datetime.combine(datetime.fromisoformat(ranges[4][1]), datetime.max.time()).timestamp() * 1000)
+
+    balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
+    total = get_total_sum_income_by_users_ids(users_ids=tuple(favorites_users))
+    today = get_time_sum_income_by_users_ids(
+        users_ids=tuple(favorites_users), start=int(today_start), end=int(today_end)
+    )
+    week = get_time_sum_income_by_users_ids(
+        users_ids=tuple(favorites_users), start=int(week_start), end=int(week_end)
+    )
+    month = get_time_sum_income_by_users_ids(
+        users_ids=tuple(favorites_users), start=int(month_start), end=int(month_end)
+    )
+    unrealized = get_total_unrealized_pnl_by_users_ids(users_ids=tuple(favorites_users))
+    all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
+
+    by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+    by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+
+    fees = {"USDT": 0, "BNB": 0}
+    temp_total: tuple[list[float], list[float]] = ([], [])
+    custom_frame = get_custom_frame_by_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+    profit_period = balance - zero_value(custom_frame)
+
+    temp: tuple[list[float], list[float]] = ([], [])
+    for each in by_date:
+        temp[0].append(round(float(each[1]), 2))
+        temp[1].append(each[0])
+        temp_total[1].append(each[0])
+        temp_total[0].append(round(profit_period + float(each[1]), 2))
+        profit_period += float(each[1])
+    by_date = temp
+    total_by_date = temp_total
+
+    temp = ([], [])
+    for each in by_symbol:
+        temp[0].append(each[1])
+        temp[1].append(round(float(each[0]), 2))
+    by_symbol = temp
+    if balance == 0.0:
+        percentages = ["-", "-", "-", "-"]
+    else:
+        percentages = [
+            format_dp(zero_value(today) / balance * 100),
+            format_dp(zero_value(week) / balance * 100),
+            format_dp(zero_value(month) / balance * 100),
+            format_dp(zero_value(total) / balance * 100),
+        ]
+
+    for row in all_fees:
+        fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
+    pnl = [format_dp(zero_value(unrealized)), format_dp(balance)]
+    totals = [
+        format_dp(zero_value(total)),
+        format_dp(zero_value(today)),
+        format_dp(zero_value(week)),
+        format_dp(zero_value(month)),
+        ranges[3],
+        fees,
+        percentages,
+        pnl,
+        datetime.now().strftime("%B"),
+        zero_value(custom_frame),
+        len(by_symbol[0]),
+    ]
+
+    active_api_label = get_default_api_label()
+    users_statistic_list = get_users_statistic(ids=favorites_users)
+    wallet = get_wallet_by_user_id(user_id=current_user.id)
+    status = is_activate(user_id=current_user.id)
+    print(f"User: {current_user.username} | Active: {status}")
+
+    return render_template(
+        "statistic.html",
+        is_admin=current_user.is_admin == 1,
+        coin_list=get_coins(active_api_label),
+        totals=totals,
+        data=[by_date, by_symbol, total_by_date],
+        lastupdate=get_lastupdate(active_api_label),
+        startdate=start_date,
+        enddate=end_date,
+        timeranges=ranges,
+        custom=current_app.config["CUSTOM"],
+        api_label_list=get_api_label_list(),
+        wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
+        users_statistic=users_statistic_list,
+        percent_unrealised_pnl=get_percent_unrealised_pnl_for_all(
+            unrealised_pnl=zero_value(unrealized),
+            users_ids=tuple(favorites_users)
+        ),
+        favorites_users=len(favorites.get_user_favorite) > 0
+    )
+
 # <<<-------------------------------------------->>> APIS <<<-------------------------------------------------------->>>
 
 @app.route("/reset-password-api-route", methods=["POST"])
