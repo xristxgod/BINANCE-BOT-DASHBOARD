@@ -39,13 +39,11 @@ symbol = {
 
 SENDER_EMAIL = config("SENDER_EMAIL")
 SENDER_PASSWORD = config("SENDER_PASSWORD")
-# https://www.youtube.com/watch?v=zYWpEJAHvaI | 49:00 - Если проблемиы с отправкой сообщения
 SENDER_SERVER = config("SENDER_SERVER", "smtp.gmail.com")
 
 BOT_NAME = config("BOT_NAME")
 
 USERS_FILE_PATH = os.path.join(BASE_FILE, "users_file.json")
 USERS_TO_FAVORITES_FILE_PATH = os.path.join(BASE_FILE, "favorites.json")
-
 PDF_FILE_PATH = os.path.join(BASE_STATIC, "MyBotSetupInstructions.pdf")
 EXCEL_FILE_PATH = os.path.join(BASE_STATIC, "report.xlsx")

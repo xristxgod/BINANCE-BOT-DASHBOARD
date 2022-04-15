@@ -309,6 +309,20 @@ def get_position_info_by_api_label_and_user_id(api_label: str, user_id: int, coi
         if connection is not None:
             connection.close()
 
+def get_username_by_id(user_id: int):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        return cursor.execute(
+            f'SELECT username FROM user_model WHERE id = {user_id}'
+        ).fetchone()[0]
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
 # <<<---------------------------------->>> USER STATISTIC DASHBOARD <<<---------------------------------------------->>>
 
 def get_total_wallet_balance_by_users_ids(users_ids: typing.Tuple[int]) -> float:
@@ -324,7 +338,11 @@ def get_total_wallet_balance_by_users_ids(users_ids: typing.Tuple[int]) -> float
             data = cursor.execute(
                 f"SELECT totalWalletBalance FROM account_model WHERE user_id IN {users_ids};"
             ).fetchall()
-        return sum([d[0] for d in data]) if data[0][0] is not None else None
+        balance = 0
+        for d in data:
+            if d[0] is not None and not isinstance(d, str):
+                balance += d[0]
+        return balance
     except Exception as error:
         raise error
     finally:
