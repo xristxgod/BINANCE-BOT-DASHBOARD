@@ -270,9 +270,9 @@ def get_user_budget_by_api_label(api_label: str):
         connection.row_factory = dict_factory
         cursor = connection.cursor()
         data = cursor.execute(
-            f"SELECT budget FROM user_model WHERE id=(SELECT user_id FROM account_model WHERE api_label='{api_label}');"
+            f"SELECT totalWalletBalance FROM account_model WHERE api_label='{api_label}';"
         ).fetchone()
-        return decimals.create_decimal(data["budget"])
+        return decimals.create_decimal(data["totalWalletBalance"])
     except Exception as error:
         raise error
     finally:
@@ -336,7 +336,7 @@ def get_total_wallet_balance_by_users_ids(users_ids: typing.Tuple[int]) -> float
             ).fetchall()
         else:
             data = cursor.execute(
-                f"SELECT totalWalletBalance FROM account_model WHERE user_id IN {users_ids};"
+                f"SELECT SUM(totalWalletBalance) FROM account_model WHERE user_id IN {users_ids};"
             ).fetchall()
         balance = 0
         for d in data:

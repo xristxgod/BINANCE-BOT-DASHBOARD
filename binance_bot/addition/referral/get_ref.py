@@ -22,6 +22,7 @@ def get_sql_from_db(sql: str) -> typing.Dict:
         if connection is not None:
             connection.close()
 
+
 def get_lvl_1(users: typing.List[typing.Dict], balance: decimal.Decimal) -> typing.List[typing.Dict]:
     lvl_1_users: typing.List[typing.Dict] = []
     time_now = int(datetime.timestamp(datetime.now()))
@@ -33,22 +34,39 @@ def get_lvl_1(users: typing.List[typing.Dict], balance: decimal.Decimal) -> typi
             f"AND asset <> 'BNB' AND incomeType <> 'TRANSFER';"
         )
         result = get_sql_from_db(sql)
-
         if result["income"] is None or ("income" in result and decimals.create_decimal(result["income"]) <= 0):
+            try:
+                res = get_sql_from_db(f"SELECT username FROM user_model WHERE id = {user['user_id']}")
+                if "username" in res.keys():
+                    username = res["username"]
+                else:
+                    username = "-NotFound-"
+            except Exception as error:
+                logger.error(f"{error}")
+                username = "-NotFound-"
             lvl_1_users.append({
                 "user_id": user["user_id"],
                 "reg_time": user["time"],
-                "username": get_sql_from_db(f"SELECT username FROM user_model WHERE id = {user['user_id']}")["username"],
+                "username": username,
                 "income_for_all_time": 0
             })
         else:
             income = decimals.create_decimal(result["income"]) / 100 * 4
             if income - balance > 1000 or get_user_balance(user_id=user["user_id"]) - balance >= 10:
                 income = balance / 100 * 4
+            try:
+                res = get_sql_from_db(f"SELECT username FROM user_model WHERE id = {user['user_id']}")
+                if "username" in res.keys():
+                    username = res["username"]
+                else:
+                    username = "-NotFound-"
+            except Exception as error:
+                logger.error(f"{error}")
+                username = "-NotFound-"
             lvl_1_users.append({
                 "user_id": user["user_id"],
                 "reg_time": user["time"],
-                "username": result["username"],
+                "username": username,
                 "income_for_all_time": income
             })
     return lvl_1_users

@@ -23,6 +23,7 @@ from typing_extensions import TypedDict
 from CredentialManager import CredentialManager
 
 from futuresboard import db_manager, scraper
+from futuresboard.scraper import get_liquidation_price
 from futuresboard.forms import *
 from futuresboard.db_manager import *
 
@@ -663,7 +664,6 @@ def index_page(active_api_label=""):
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
-
 @app.route("/dashboard/<start>/<end>", methods=["GET"])
 @app.route("/dashboard/<active_api_label>/<start>/<end>", methods=["GET"])
 @login_required
@@ -673,7 +673,6 @@ def dashboard_page(start, end, active_api_label=""):
     if active_api_label == "":
         active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
-    # active_api_label = "API 1@Artem"
     ranges = timeranges()
     daterange = request.args.get("daterange")
     if daterange is not None:
@@ -849,7 +848,6 @@ def dashboard_page(start, end, active_api_label=""):
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
-
 @app.route("/positions")
 @app.route("/<active_api_label>/positions")
 @login_required
@@ -859,7 +857,6 @@ def positions_page(active_api_label=""):
     if active_api_label == "":
         active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
-    # active_api_label = "API 1@Artem"
     coins = get_coins(active_api_label)
     positions = {}
 
@@ -913,7 +910,6 @@ def coin_page(coin, active_api_label=""):
     if active_api_label == "":
         active_api_label = get_default_api_label()
     scraper.scrape(active_api_label, app)
-    # active_api_label = "API 1@Artem"
     coins = get_coins(active_api_label)
     if coin not in coins["inactive"] and coin not in coins["active"]:
         return (
@@ -966,7 +962,7 @@ def coin_page(coin, active_api_label=""):
     balance = db_manager.query(active_api_label, "SELECT totalWalletBalance FROM account_model", one=True)
     if balance[0] is None:
         totals = ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]]
-        liquidation_price = 0
+        liquidation_price = {"LONG": 0, "SHORT": 0}
     else:
 
         todaystart = (
@@ -1088,18 +1084,10 @@ def coin_page(coin, active_api_label=""):
         by_date = temp
 
         try:
-            position_info = get_position_info_by_api_label_and_user_id(
-                api_label=active_api_label,
-                user_id=current_user.id,
-                # user_id=2,
-                coin=coin
-            )
-            entry_price = position_info["entryPrice"]
-            leverage = position_info["leverage"]
-            liquidation_price = entry_price - (entry_price / 100 * (100 / leverage))
+            liquidation_price = get_liquidation_price(active_api_label=active_api_label, coin=coin)
         except Exception as error:
-            liquidation_price = 0
-
+            logger.error(f"{error}")
+            liquidation_price = {"LONG": 0, "SHORT": 0}
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -1126,7 +1114,7 @@ def coin_page(coin, active_api_label=""):
             unrealised_pnl=zero_value(unrealized[0]) if totals != ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]] else "-",
             api_label=active_api_label
         ),
-        liquidation_price="%.4f" % liquidation_price,
+        liquidation_price=liquidation_price,            # Dict
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
@@ -1139,7 +1127,6 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
         return redirect(url_for('main.logout_page'))
     if active_api_label == "":
         active_api_label = get_default_api_label()
-    # active_api_label = "API 1@Artem"
     coins = get_coins(active_api_label)
     if coin not in coins["inactive"] and coin not in coins["active"]:
         return (
@@ -1231,7 +1218,7 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
     balance = db_manager.query(active_api_label, "SELECT totalWalletBalance FROM account_model", one=True)
     if balance[0] is None:
         totals = ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]]
-        liquidation_price = 0
+        liquidation_price = {"LONG": 0, "SHORT": 0}
     else:
         total = db_manager.query(active_api_label,
                                  'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND symbol = ?',
@@ -1329,17 +1316,11 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
             zero_value(customframe[0]),
         ]
         try:
-            position_info = get_position_info_by_api_label_and_user_id(
-                api_label=active_api_label,
-                user_id=current_user.id,
-                # user_id=2,
-                coin=coin
-            )
-            entry_price = position_info["entryPrice"]
-            leverage = position_info["leverage"]
-            liquidation_price = entry_price - (entry_price / 100 * (100 / leverage))
+
+            liquidation_price = get_liquidation_price(active_api_label=active_api_label, coin=coin)
         except Exception as error:
-            liquidation_price = 0
+            logger.error(f"{error}")
+            liquidation_price = {"LONG": 0, "SHORT": 0}
 
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -1368,7 +1349,7 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
                                                                    ["-", "-", "-", "-"]] else "-",
             api_label=active_api_label
         ),
-        liquidation_price="%.4f" % liquidation_price,
+        liquidation_price=liquidation_price,
         favorites_users=len(favorites.get_user_favorite) > 0,
     )
 
@@ -2434,7 +2415,7 @@ def users_statistic_index_two():
             ],
                 "percent_unrealised_pnl": get_percent_unrealised_pnl_for_all(
                     unrealised_pnl=zero_value(unrealized),
-                    users_ids=tuple(favorites_users)
+                    users_ids=tuple(favorite)
                 )
             }
         )
@@ -2598,7 +2579,7 @@ def users_statistic_two_page(start, end):
                 ],
                 "percent_unrealised_pnl": get_percent_unrealised_pnl_for_all(
                     unrealised_pnl=zero_value(unrealized),
-                    users_ids=tuple(favorites_users)
+                    users_ids=tuple(favorite)
                 )
             }
         )

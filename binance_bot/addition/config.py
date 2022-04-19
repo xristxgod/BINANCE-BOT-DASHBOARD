@@ -18,13 +18,13 @@ percentage_of_pnl = int(config("PERCENTAGE_OF_WITHDRAWALS_PER_DAY", "30"))
 db_path = os.path.join(BASE_DIR, "database.db")
 
 adminWallet = {
-    "address": config("ADMIN_ADDRESS"),
-    "privateKey": config("ADMIN_PRIVATE_KEY")
+    "address": config("ADMIN_ADDRESS", ""),
+    "privateKey": config("ADMIN_PRIVATE_KEY", "")
 }
 LIMIT_USDT = decimals.create_decimal(config("LIMIT_USDT", "2.0"))
 
-TOKEN = config("TOKEN")
-ADMIN_IDS = config("ADMIN_IDS").split(",")
+TOKEN = config("TOKEN", "")
+ADMIN_IDS = config("ADMIN_IDS", ",").split(",")
 
 
 if _network == "mainnet":    __token = "tokensMainNet.json"
@@ -37,13 +37,14 @@ symbol = {
     "dec": emoji.emojize(":red_circle:")
 }
 
-SENDER_EMAIL = config("SENDER_EMAIL")
-SENDER_PASSWORD = config("SENDER_PASSWORD")
+SENDER_EMAIL = config("SENDER_EMAIL", "")
+SENDER_PASSWORD = config("SENDER_PASSWORD", "")
 SENDER_SERVER = config("SENDER_SERVER", "smtp.gmail.com")
 
-BOT_NAME = config("BOT_NAME")
+BOT_NAME = config("BOT_NAME", "")
 
 USERS_FILE_PATH = os.path.join(BASE_FILE, "users_file.json")
 USERS_TO_FAVORITES_FILE_PATH = os.path.join(BASE_FILE, "favorites.json")
+
 PDF_FILE_PATH = os.path.join(BASE_STATIC, "MyBotSetupInstructions.pdf")
 EXCEL_FILE_PATH = os.path.join(BASE_STATIC, "report.xlsx")

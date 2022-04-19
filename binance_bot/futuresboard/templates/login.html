@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}
-Register Page
+Login Page
 {% endblock %}
 
 {% block autoreload %}
@@ -24,16 +24,22 @@ Register Page
 
             {{ form.password.label() }}
             {{ form.password(class="form-control", placeholder="Password") }}
-
+            
             <br>
-
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="" id="flexCheckIndeterminate" onchange="document.getElementById('submit').disabled = !this.checked;" />
+                <label class="form-check-label" for="flexCheckIndeterminate">
+                    <a href="{{ url_for('main.risk_agreement') }}" target="_blank">User Agreement</a>
+                </label>
+            </div>
+            <br>
             <div class="checkbox mb-3">
                 <h6>Do not have an account?</h6>
                 <a class="btn btn-secondary" href="{{ url_for('main.register_page') }}">Register</a>
             </div>
-
-            {{ form.submit(class="btn btn-lg btn-block btn-primary") }}
-
+            
+            {{ form.submit(class="btn btn-lg btn-block btn-primary", disabled="disabled") }}
+            
         </form>
 
         <br>

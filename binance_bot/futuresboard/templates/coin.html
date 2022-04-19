@@ -113,7 +113,7 @@
             <div class="card">
                 <div class="card-header text-muted text-center">
                     Position / orders
-                    <span class="float-end">Liquid Price: {{ liquidation_price }} | <i class="fas fa-tag"></i> {{ markprice }}</span>
+                    <span class="float-end">Liquid Price: LONG: {{ liquidation_price["LONG"] }} SHORT: {{ liquidation_price["SHORT"] }} | <i class="fas fa-tag"></i> {{ markprice }}</span>
                 </div>
 
                 <table id="orders" class='table table-sm table-bordered text-center'>
