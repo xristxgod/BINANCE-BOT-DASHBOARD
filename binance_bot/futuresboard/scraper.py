@@ -17,6 +17,8 @@ from flask_login import login_user, logout_user, login_required, current_user
 import requests
 from flask import current_app
 
+from addition.config import decimals
+
 MIN_SCRAPE_PERIOD_SEC = 1
 LAST_SCRAPE_TIME_SEC = 0
 
@@ -424,7 +426,7 @@ def get_liquidation_price(active_api_label, coin) -> typing.Dict:
                 continue
             
             if response["positionSide"] == "SHORT":
-                data["SHORT"] += decimals.create_decima(response["liquidationPrice"])
+                data["SHORT"] += decimals.create_decimal(response["liquidationPrice"])
             elif response["positionSide"] == "LONG":
-                data["LONG"] += decimals.create_decima(response["liquidationPrice"])
+                data["LONG"] += decimals.create_decimal(response["liquidationPrice"])
     return data
