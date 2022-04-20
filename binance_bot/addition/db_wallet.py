@@ -358,13 +358,14 @@ def get_total_sum_income_by_users_ids(users_ids: typing.Tuple[int]) -> float:
             data = cursor.execute((
                 f"SELECT SUM(income) FROM income_model "
                 f"WHERE asset <> 'BNB' AND incomeType <> 'TRANSFER' AND user_id={users_ids[0]};"
-            )).fetchall()
+            )).fetchone()
+            return data[0]
         else:
             data = cursor.execute((
                 f"SELECT SUM(income) FROM income_model "
                 f"WHERE asset <> 'BNB' AND incomeType <> 'TRANSFER' AND user_id IN {users_ids};"
             )).fetchall()
-        return sum([d[0] for d in data]) if data[0][0] is not None else None
+            return sum([d[0] for d in data]) if data[0][0] is not None else None
     except Exception as error:
         raise error
     finally:
@@ -405,12 +406,13 @@ def get_total_unrealized_pnl_by_users_ids(users_ids: typing.Tuple[int]) -> float
         if len(users_ids) == 1:
             data = cursor.execute(
                 f"SELECT SUM(unrealizedProfit) FROM positions_model WHERE user_id={users_ids[0]};"
-            ).fetchall()
+            ).fetchone()
+            return data[0]
         else:
             data = cursor.execute(
                 f"SELECT SUM(unrealizedProfit) FROM positions_model WHERE user_id IN {users_ids};"
             ).fetchall()
-        return sum([d[0] for d in data]) if data[0][0] is not None else None
+            return sum([d[0] for d in data]) if data[0][0] is not None else None
     except Exception as error:
         raise error
     finally:
