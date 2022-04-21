@@ -6,6 +6,7 @@ import hmac
 import sqlite3
 import threading
 import time
+import typing
 from datetime import timedelta
 from sqlite3 import Error
 from urllib.parse import urlencode
@@ -414,19 +415,17 @@ def _scrape(active_api_label, app):
             )
         )
 
+def __is_zero(x):
+    return x if x is not None else 0
+
 def get_liquidation_price(active_api_label, coin) -> typing.Dict:
     data = {"SHORT": 0, "LONG": 0}
     params = {"symbol": coin}
     _, json_response = send_signed_request(active_api_label, "GET", "/fapi/v2/positionRisk", params)
     if isinstance(json_response, list) and len(json_response) != 0 and json_response is not None:
         for response in json_response:
-            if "positionSide" not in response:
-                continue
-            if "liquidationPrice" not in response:
-                continue
-            
-            if response["positionSide"] == "SHORT":
-                data["SHORT"] += decimals.create_decimal(response["liquidationPrice"])
-            elif response["positionSide"] == "LONG":
-                data["LONG"] += decimals.create_decimal(response["liquidationPrice"])
+            if "positionSide" in response and response.get("positionSide") == "SHORT" and "liquidationPrice" in response:
+                data["SHORT"] = __is_zero(response["liquidationPrice"])
+            elif "positionSide" in response and response.get("positionSide") == "LONG" and "liquidationPrice" in response:
+                data["LONG"] = __is_zero(response["liquidationPrice"])
     return data

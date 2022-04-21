@@ -6,7 +6,7 @@ from datetime import datetime
 
 from addition.db_wallet import get_user_balance
 from addition.utils import dict_factory
-from addition.config import db_path, decimals
+from addition.config import db_path, decimals, logger
 
 def get_sql_from_db(sql: str) -> typing.Dict:
     connection = None
@@ -22,11 +22,11 @@ def get_sql_from_db(sql: str) -> typing.Dict:
         if connection is not None:
             connection.close()
 
-
 def get_lvl_1(users: typing.List[typing.Dict], balance: decimal.Decimal) -> typing.List[typing.Dict]:
     lvl_1_users: typing.List[typing.Dict] = []
     time_now = int(datetime.timestamp(datetime.now()))
     for user in users:
+
         sql = (
             f"SELECT SUM(income) AS income FROM income_model "
             f"WHERE user_id={user['user_id']} "

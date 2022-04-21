@@ -524,11 +524,10 @@ def get_custom_frame_by_users_ids(users_ids: typing.Tuple[int], start: int, end:
         cursor = connection.cursor()
         if len(users_ids) == 1:
             data = cursor.execute((
-                f"SELECT SUM(income) AS inc, symbol FROM income_model "
+                f"SELECT SUM(income) FROM income_model "
                 f"WHERE asset <> 'BNB' AND incomeType <> 'TRANSFER' "
                 f"AND time >= {start} AND time <= {end} "
-                f"AND user_id={users_ids[0]} "
-                f"GROUP BY symbol ORDER BY inc DESC;"
+                f"AND user_id={users_ids[0]};"
             )).fetchone()
         else:
             data = cursor.execute((
@@ -537,6 +536,7 @@ def get_custom_frame_by_users_ids(users_ids: typing.Tuple[int], start: int, end:
                 f"AND time >= {start} AND time <= {end} "
                 f"AND user_id IN {users_ids};"
             )).fetchone()
+        print(data)
         return data[0]
     except Exception as error:
         raise error
@@ -605,6 +605,24 @@ def get_users_info_by_users_ids(users_ids: typing.List[int]) -> typing.List:
                 })
             result.append(user_data)
         return result
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+# <<<---------------------------------->>> USER STATISTIC CARD TWO <<<----------------------------------------------->>>
+
+def get_api_label_by_user_id(user_id: int):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        data = cursor.execute(f"SELECT api_label FROM account_model WHERE user_id={user_id}").fetchall()
+        if data is not None:
+            return [d[0] for d in data]
+        else:
+            return []
     except Exception as error:
         raise error
     finally:

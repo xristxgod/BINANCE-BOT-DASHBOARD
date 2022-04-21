@@ -24,7 +24,7 @@ Login Page
 
             {{ form.password.label() }}
             {{ form.password(class="form-control", placeholder="Password") }}
-            
+
             <br>
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" value="" id="flexCheckIndeterminate" onchange="document.getElementById('submit').disabled = !this.checked;" />
@@ -37,9 +37,7 @@ Login Page
                 <h6>Do not have an account?</h6>
                 <a class="btn btn-secondary" href="{{ url_for('main.register_page') }}">Register</a>
             </div>
-            
             {{ form.submit(class="btn btn-lg btn-block btn-primary", disabled="disabled") }}
-            
         </form>
 
         <br>

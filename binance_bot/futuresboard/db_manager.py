@@ -38,9 +38,11 @@ def close_db(e=None):
     pass
 
 
-def query(active_api_label, query, args=[], one=False):
-    user_id = current_user.id
-    # user_id = 2
+def query(active_api_label, query, args=[], one=False, user_ids: int = None):
+    if user_ids is None:
+        user_id = current_user.id
+    else:
+        user_id = user_ids
     if query.find('WHERE') >= 0:
         query_form = query.replace('WHERE', 'WHERE api_label = "%s" AND user_id = "%d" AND').replace('?', '"%s"') % tuple([active_api_label, user_id] + args)
     else:

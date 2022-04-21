@@ -56,54 +56,44 @@
 <h5 class="text-center">Username: {{ totals["username"] }}</h5>
 <div class="row">
     <div class="col-sm-2">
-        <a href="{{ url_for("main.dashboard_page", start=timeranges[0][0], end=timeranges[0][1], active_api_label=active_api_label)}}">
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title">{{ totals["totals"][6][0] }}%</h5>
                 <p class="card-text">${{ totals["totals"][1] }}</p>
             </div>
         </div>
-        </a>
     </div>
     <div class="col-sm-2">
-        <a href="{{ url_for("main.dashboard_page", start=timeranges[2][0], end=timeranges[2][1], active_api_label=active_api_label) }}">
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title">{{ totals["totals"][6][1] }}%</h5>
                 <p class="card-text">${{ totals["totals"][2] }}</p>
             </div>
         </div>
-        </a>
     </div>
     <div class="col-sm-2">
-        <a href="{{ url_for("main.dashboard_page", start=timeranges[4][0], end=timeranges[4][1], active_api_label=active_api_label) }}">
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title">{{ totals["totals"][6][2] }}%</h5>
                 <p class="card-text">${{ totals["totals"][3] }}</p>
             </div>
         </div>
-        </a>
     </div>
     <div class="col-sm-2">
-        <a href="{{ url_for("main.dashboard_page", start=timeranges[8][0], end=timeranges[8][1], active_api_label=active_api_label) }}">
         <div class="card text-center">
             <div class="card-body">
                 <h5 class="card-title">{{ totals["totals"][6][3] }}%</h5>
                 <p class="card-text">${{ totals["totals"][0] }}</p>
             </div>
         </div>
-        </a>
     </div>
     <div class="col-sm-2">
-        <a href="{{ url_for("main.positions_page", active_api_label=active_api_label) }}">
         <div class="card text-center">
             <div class="card-body">
-                <h5 class="card-title">{{ totals["percent_unrealised_pnl"] }}%</h5>
+                <h5 class="card-title">{{  totals["totals"][7][2] }}%</h5>
                 <p class="card-text">${{ totals["totals"][7][0] }}</p>
             </div>
         </div>
-        </a>
     </div>
     <div class="col-sm-2">
         <div class="card text-center">

@@ -49,6 +49,7 @@ from addition.helper.statistic import get_users_statistic
 app = Blueprint("main", __name__)
 favorites = FavoritesUsers()
 
+
 class CoinsTotals(TypedDict):
     active: int
     inactive: int
@@ -82,7 +83,8 @@ def api_credentials_ok(api_credentials, exchange_name):
             'timeout': 30000,
             'enableRateLimit': True,
             'hedgeMode': True,
-            'options':{'defaultType': 'future', 'adjustForTimeDifference': True, 'defaultTimeInForce':'GTC', 'recvWindow': 59999}
+            'options': {'defaultType': 'future', 'adjustForTimeDifference': True, 'defaultTimeInForce': 'GTC',
+                        'recvWindow': 59999}
         }
         params.update(api_credentials)
         exchange = exchange_class(params)
@@ -182,11 +184,13 @@ def get_coins(active_api_label=None):
     coins["totals"]["pbr"] = format_dp(coins["totals"]["pbr"])
     return coins
 
+
 def get_lastupdate(active_api_label):
     lastupdate = db_manager.query(active_api_label, "SELECT MAX(time) FROM orders_model", one=True)
     if lastupdate[0] is None:
         return "-"
     return datetime.fromtimestamp(lastupdate[0] / 1000.0).strftime("%Y-%m-%d %H:%M:%S")
+
 
 def timeranges():
     today = date.today()
@@ -216,16 +220,20 @@ def timeranges():
         [last_year_start.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")],
     ]
 
+
 def get_api_label_list():
     if current_user.is_admin:
         label_user_lst = CredentialManager.get_api_label_list()
-        binance_api_lst = [*filter(lambda x : CredentialManager.get_exchange_name_from_api_label(x) == 'binance', label_user_lst)]
+        binance_api_lst = [
+            *filter(lambda x: CredentialManager.get_exchange_name_from_api_label(x) == 'binance', label_user_lst)]
     else:
         label_user_lst = CredentialManager.get_api_label_list(current_user.username)
-        binance_api_lst = [*filter(lambda x : CredentialManager.get_exchange_name_from_api_label(x) == 'binance', label_user_lst)]
-        binance_api_lst = [*map(lambda x : x.split('@')[0], binance_api_lst)]
+        binance_api_lst = [
+            *filter(lambda x: CredentialManager.get_exchange_name_from_api_label(x) == 'binance', label_user_lst)]
+        binance_api_lst = [*map(lambda x: x.split('@')[0], binance_api_lst)]
     binance_api_lst.sort()
     return binance_api_lst
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register_page():
@@ -275,6 +283,7 @@ def register_page():
                            custom=current_app.config["CUSTOM"],
                            form=form)
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     form = LoginForm()
@@ -284,7 +293,8 @@ def login_page():
                 attempted_password=form.password.data
         ):
             if attempted_user.status != 'active':
-                flash(f'Your account was {attempted_user.status}, please contact site administrator for more info!', category='danger')
+                flash(f'Your account was {attempted_user.status}, please contact site administrator for more info!',
+                      category='danger')
             else:
                 if ResetPasswordModel.query.filter_by(user_id=attempted_user.id).first():
                     ResetPasswordModel.query.filter_by(user_id=attempted_user.id).delete()
@@ -301,6 +311,7 @@ def login_page():
                            coin_list=get_coins(),
                            custom=current_app.config["CUSTOM"],
                            form=form)
+
 
 @app.route("/checking-code/<username>", methods=['GET', 'POST'])
 def checking_code(username):
@@ -321,6 +332,7 @@ def checking_code(username):
                            custom=current_app.config["CUSTOM"],
                            form=form)
 
+
 def send_mail_code(user, secret_key):
     msg = Message(
         'Password Reset Request',
@@ -332,6 +344,7 @@ def send_mail_code(user, secret_key):
         """
     mail.send(msg)
 
+
 def send_mail(user, token):
     msg = Message(
         'Password Reset Request',
@@ -340,13 +353,14 @@ def send_mail(user, token):
     )
     msg.body = f"""
         To reset your password. Please follow the link below.
-        
+
         {url_for("main.reset_token", token=token, _external=True)}
         ...
         If you didn't send a password reset request. Please ignore this message
-        
+
     """
     mail.send(msg)
+
 
 def is_have_time(timestamp: int) -> bool:
     reg_time = datetime.fromtimestamp(timestamp)
@@ -356,6 +370,7 @@ def is_have_time(timestamp: int) -> bool:
         return True
     else:
         return False
+
 
 @app.route('/reset-password', methods=['GET', 'POST'])
 def reset_password():
@@ -388,6 +403,7 @@ def reset_password():
         form=form,
         legend="Reset Password"
     )
+
 
 @app.route("/reset-password/<token>", methods=['GET', 'POST'])
 def reset_token(token):
@@ -422,13 +438,16 @@ def reset_token(token):
         form=form
     )
 
+
 @app.route('/logout')
 def logout_page():
     if current_user.status != 'active':
-        flash(f'Your account was {current_user.status}, please contact site administrator for more info!', category='danger')
+        flash(f'Your account was {current_user.status}, please contact site administrator for more info!',
+              category='danger')
     logout_user()
     flash("You have been logged out!", category='info')
     return redirect(url_for("main.index_page"))
+
 
 @app.route("/apis", methods=['GET', 'POST'])
 @app.route("/<active_api_label>/apis", methods=['GET', 'POST'])
@@ -464,11 +483,13 @@ def api_page(active_api_label=""):
                 api_credentials['secret'] = add_form.secret_key.data
                 if api_credentials_ok(api_credentials, exchange_name):
                     if not added_api in get_api_label_list():
-                        CredentialManager.set_credentials(added_api, exchange_name, api_credentials, current_user.username)
+                        CredentialManager.set_credentials(added_api, exchange_name, api_credentials,
+                                                          current_user.username)
                     else:
                         flash(f"Could not add or update {added_api} as it is already added", category='danger')
                 else:
-                    flash(f"Could not add  {added_api}, please check credential values and API permissions", category='danger')
+                    flash(f"Could not add  {added_api}, please check credential values and API permissions",
+                          category='danger')
                 return redirect(url_for('main.api_page'))
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -484,6 +505,7 @@ def api_page(active_api_label=""):
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/", methods=["GET"])
 @app.route("/<active_api_label>", methods=["GET"])
@@ -516,7 +538,8 @@ def index_page(active_api_label=""):
                         * 1000
                 )
                 startdate, enddate = daterange[0], daterange[1]
-                return redirect(url_for("main.dashboard_page", start=startdate, end=enddate, active_api_label=active_api_label))
+                return redirect(
+                    url_for("main.dashboard_page", start=startdate, end=enddate, active_api_label=active_api_label))
             except Exception:
                 pass
 
@@ -556,7 +579,8 @@ def index_page(active_api_label=""):
 
     balance = db_manager.query(active_api_label, "SELECT totalWalletBalance FROM account_model", one=True)
     total = db_manager.query(active_api_label,
-                             'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"', one=True
+                             'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"',
+                             one=True
                              )
     today = db_manager.query(active_api_label,
                              'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ?',
@@ -625,7 +649,17 @@ def index_page(active_api_label=""):
 
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-    pnl = [format_dp(zero_value(unrealized[0])), format_dp(balance)]
+
+    try:
+        unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+    except Exception as error:
+        unrealized_percent = 0
+    pnl = [
+        format_dp(zero_value(unrealized[0])),
+        format_dp(balance),
+        format_dp(zero_value(unrealized_percent))
+    ]
+
     totals = [
         format_dp(zero_value(total[0])),
         format_dp(zero_value(today[0])),
@@ -657,12 +691,9 @@ def index_page(active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        percent_unrealised_pnl=get_percent_unrealised_pnl(
-            unrealised_pnl=zero_value(unrealized[0]),
-            api_label=active_api_label
-        ),
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/dashboard/<start>/<end>", methods=["GET"])
 @app.route("/dashboard/<active_api_label>/<start>/<end>", methods=["GET"])
@@ -692,7 +723,8 @@ def dashboard_page(start, end, active_api_label=""):
                         * 1000
                 )
                 startdate, enddate = daterange[0], daterange[1]
-                return redirect(url_for("main.dashboard_page", start=startdate, end=enddate, active_api_label=active_api_label))
+                return redirect(
+                    url_for("main.dashboard_page", start=startdate, end=enddate, active_api_label=active_api_label))
             except Exception:
                 return redirect(url_for("main.dashboard_page", start=start, end=end, active_api_label=active_api_label))
 
@@ -733,7 +765,8 @@ def dashboard_page(start, end, active_api_label=""):
 
     balance = db_manager.query(active_api_label, "SELECT totalWalletBalance FROM account_model", one=True)
     total = db_manager.query(active_api_label,
-                             'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"', one=True
+                             'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"',
+                             one=True
                              )
 
     today = db_manager.query(active_api_label,
@@ -810,7 +843,17 @@ def dashboard_page(start, end, active_api_label=""):
 
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-    pnl = [format_dp(zero_value(unrealized[0])), format_dp(balance)]
+
+    try:
+        unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+    except Exception as error:
+        unrealized_percent = 0
+    pnl = [
+        format_dp(zero_value(unrealized[0])),
+        format_dp(balance),
+        format_dp(zero_value(unrealized_percent))
+    ]
+
     totals = [
         format_dp(zero_value(total[0])),
         format_dp(zero_value(today[0])),
@@ -847,6 +890,7 @@ def dashboard_page(start, end, active_api_label=""):
         ),
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/positions")
 @app.route("/<active_api_label>/positions")
@@ -942,7 +986,8 @@ def coin_page(coin, active_api_label=""):
                 )
                 startdate, enddate = daterange[0], daterange[1]
                 return redirect(
-                    url_for("main.coin_page_timeframe", coin=coin, start=startdate, end=enddate, active_api_label=active_api_label)
+                    url_for("main.coin_page_timeframe", coin=coin, start=startdate, end=enddate,
+                            active_api_label=active_api_label)
                 )
             except Exception:
                 pass
@@ -1060,7 +1105,17 @@ def coin_page(coin, active_api_label=""):
             ]
         for row in result:
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-        pnl = [format_dp(zero_value(unrealized[0])), format_dp(balance)]
+
+        try:
+            unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+        except Exception as error:
+            unrealized_percent = 0
+        pnl = [
+            format_dp(zero_value(unrealized[0])),
+            format_dp(balance),
+            format_dp(zero_value(unrealized_percent))
+        ]
+
         totals = [
             format_dp(zero_value(total[0])),
             format_dp(zero_value(today[0])),
@@ -1110,11 +1165,7 @@ def coin_page(coin, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        percent_unrealised_pnl=get_percent_unrealised_pnl(
-            unrealised_pnl=zero_value(unrealized[0]) if totals != ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0}, ["-", "-", "-", "-"]] else "-",
-            api_label=active_api_label
-        ),
-        liquidation_price=liquidation_price,            # Dict
+        liquidation_price=liquidation_price,  # Dict
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
@@ -1159,11 +1210,13 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
                 )
                 startdate, enddate = daterange[0], daterange[1]
                 return redirect(
-                    url_for("main.coin_page_timeframe", coin=coin, start=startdate, end=enddate, active_api_label=active_api_label)
+                    url_for("main.coin_page_timeframe", coin=coin, start=startdate, end=enddate,
+                            active_api_label=active_api_label)
                 )
             except Exception:
                 return redirect(
-                    url_for("main.coin_page_timeframe", coin=coin, start=start, end=end, active_api_label=active_api_label)
+                    url_for("main.coin_page_timeframe", coin=coin, start=start, end=end,
+                            active_api_label=active_api_label)
                 )
 
     try:
@@ -1175,7 +1228,8 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
     except Exception:
         startdate, enddate = ranges[2][0], ranges[2][1]
         return redirect(
-            url_for("main.coin_page_timeframe", coin=coin, start=startdate, end=enddate, active_api_label=active_api_label)
+            url_for("main.coin_page_timeframe", coin=coin, start=startdate, end=enddate,
+                    active_api_label=active_api_label)
         )
 
     todaystart = (
@@ -1295,7 +1349,15 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
             temp[1].append(each[0])
         by_date = temp
 
-        pnl = [format_dp(zero_value(unrealized[0])), format_dp(balance)]
+        try:
+            unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+        except Exception as error:
+            unrealized_percent = 0
+        pnl = [
+            format_dp(zero_value(unrealized[0])),
+            format_dp(balance),
+            format_dp(zero_value(unrealized_percent))
+        ]
 
         customframe = db_manager.query(active_api_label,
                                        'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ? AND symbol = ?',
@@ -1344,11 +1406,6 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
         api_label_list=get_api_label_list(),
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        percent_unrealised_pnl=get_percent_unrealised_pnl(
-            unrealised_pnl=zero_value(unrealized[0]) if totals != ["-", "-", "-", "-", "-", {"USDT": 0, "BNB": 0},
-                                                                   ["-", "-", "-", "-"]] else "-",
-            api_label=active_api_label
-        ),
         liquidation_price=liquidation_price,
         favorites_users=len(favorites.get_user_favorite) > 0,
     )
@@ -1630,6 +1687,7 @@ def not_found(error):
         404,
     )
 
+
 @app.route("/report", methods=["GET"])
 @login_required
 def report_index():
@@ -1735,8 +1793,9 @@ def report_index():
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         is_ready_to_download=is_ready_to_download,
         reports=reports,
-        favorites_users = len(favorites.get_user_favorite) > 0
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/report/<start>/<end>", methods=["GET"])
 @app.route("/report/<active_api_label>/<start>/<end>", methods=["GET"])
@@ -1863,8 +1922,9 @@ def report_page(start, end, active_api_label=""):
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         is_ready_to_download=is_ready_to_download,
         reports=reports,
-        favorites_users = len(favorites.get_user_favorite) > 0
+        favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/report-all-time", methods=["GET", "POST"])
 @login_required
@@ -1890,6 +1950,7 @@ def report_all_time():
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
@@ -1946,7 +2007,8 @@ def profile():
             db.session.add(create_secret_key)
             db.session.commit()
             send_mail_code(current_user, secret_key=secret["secretKey"])
-            flash("Instructions for connecting Google Authenticator have been sent. Check your email.", category="success")
+            flash("Instructions for connecting Google Authenticator have been sent. Check your email.",
+                  category="success")
             return redirect(
                 url_for("main.connect_to_google_authenticator", secret_key=secret["secretKey"], _external=True))
     else:
@@ -1957,7 +2019,6 @@ def profile():
     print(f"User: {current_user.username} | Active: {status}")
     for i in ref_dict["its_lvl_1"]:
         i["reg_time"] = str(datetime.fromtimestamp(i["reg_time"]))
-
 
     return render_template(
         "profile.html",
@@ -1978,6 +2039,7 @@ def profile():
         is_connect_google=is_connect_google
     )
 
+
 @app.route("/connect-to-google-authenticator/<secret_key>", methods=["GET", "POST"])
 @login_required
 def connect_to_google_authenticator(secret_key):
@@ -1995,9 +2057,103 @@ def connect_to_google_authenticator(secret_key):
         secret_key=t.secret_key
     )
 
+
 @app.route("/risk-agreement")
 def risk_agreement():
-    return redirect("https://docs.google.com/document/d/1y6DUlcu1TnsR1rzvcLceIXu2-dAeg3ba/edit?usp=sharing&ouid=117361047904024480236&rtpof=true&sd=true", code=302)
+    return redirect(
+        "https://docs.google.com/document/d/1y6DUlcu1TnsR1rzvcLceIXu2-dAeg3ba/edit?usp=sharing&ouid=117361047904024480236&rtpof=true&sd=true",
+        code=302)
+
+# <<<-------------------------------------------->>> APIS <<<-------------------------------------------------------->>>
+
+@app.route("/reset-password-api-route", methods=["POST"])
+def reset_password_for_user_telebot():
+    if request.method == "POST":
+        if not request.json or "chatID" not in request.json:
+            return jsonify({"message": False})
+        else:
+            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
+            if user_id is None:
+                return jsonify({"message": "It was not reset, the user was not found in the system"})
+            user = UserModel.query.get(user_id.user_id)
+            if user:
+                if ResetPasswordModel.query.filter_by(user_id=user.id).first():
+                    if is_have_time(timestamp=ResetPasswordModel.query.filter_by(user_id=user.id).first().reg_time):
+                        return jsonify({"message": "The message has already been sent!!"})
+                    else:
+                        ResetPasswordModel.query.filter_by(user_id=user.id).delete()
+                        db.session.commit()
+                create_token = ResetPasswordModel(
+                    code=generate_token_code(),
+                    user_id=user.id,
+                    reg_time=int(datetime.timestamp(datetime.now()))
+                )
+                db.session.add(create_token)
+                db.session.commit()
+                send_mail(user, token=create_token.code)
+                return jsonify({"message": "Reset request sent. Check your email."})
+            else:
+                return jsonify({"message": "It was not reset, the user was not found in the system"})
+
+
+@app.route("/get-user-by-chat-id", methods=["POST"])
+def get_user_by_chat_id_for_user_telebot():
+    if request.method == "POST":
+        if not request.json or "chatID" not in request.json:
+            return jsonify({"message": False})
+        else:
+            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
+            if user_id is None:
+                return jsonify({"message": "Not found"})
+            user = UserModel.query.get(user_id.user_id)
+            if user:
+                is_admin = False
+                if str(request.json["chatID"]) in ADMIN_IDS or user.is_admin == 1:
+                    is_admin = True
+                return jsonify({
+                    "message": user.username,
+                    "is_admin": is_admin
+                })
+            else:
+                return jsonify({"message": "Not found"})
+
+
+@app.route("/get-balance-by-chat-id", methods=["POST"])
+def get_balance_by_chat_id_for_user_telebot():
+    if request.method == "POST":
+        if not request.json or "chatID" not in request.json:
+            return jsonify({"message": False})
+        else:
+            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
+            if user_id is None:
+                return jsonify({"message": "Not found"})
+            user = UserModel.query.get(user_id.user_id)
+            if user:
+                return jsonify({"message": "%.8f" % user.budget})
+            else:
+                return jsonify({"message": "Not found"})
+
+
+@app.route("/get-info_s-by-chat-id", methods=["POST"])
+def get_info_s_by_chat_id_for_admin_telebot():
+    if request.method == "POST":
+        if not request.json or "chatID" not in request.json:
+            return jsonify({"message": False})
+        else:
+            if str(request.json["chatID"]) not in ADMIN_IDS:
+                return jsonify({"message": "Not found"})
+            if str(request.json["chatID"]) in ADMIN_IDS:
+                res = []
+                for user in get_users():
+                    if decimals.create_decimal(user["budget"]) > 0:
+                        res.append(
+                            {"username": user["username"], "balance": user["budget"]}
+                        )
+                return jsonify({"message": res})
+            else:
+                return jsonify({"message": "You not admin"})
+
+# <<<-------------------------------------------->>> STATISTIC <<<--------------------------------------------------->>>
 
 @app.route("/favorites", methods=["GET", "POST"])
 @login_required
@@ -2071,6 +2227,7 @@ def favorites_page():
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
+
 @app.route("/users-statistic", methods=["GET"])
 @login_required
 def users_statistic():
@@ -2095,32 +2252,58 @@ def users_statistic():
                 pass
     today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
     today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
-
     week_start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
     week_end = (datetime.combine(datetime.fromisoformat(ranges[2][1]), datetime.max.time()).timestamp() * 1000)
-
     month_start = (datetime.combine(datetime.fromisoformat(ranges[4][0]), datetime.min.time()).timestamp() * 1000)
     month_end = (datetime.combine(datetime.fromisoformat(ranges[4][1]), datetime.max.time()).timestamp() * 1000)
-
     start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
     end = (datetime.combine(datetime.fromisoformat(ranges[2][1]), datetime.max.time()).timestamp() * 1000)
 
+    sql = {
+        "total": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"',
+        "balance": "SELECT totalWalletBalance FROM account_model",
+        "today": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "week": ('SELECT SUM(income) FROM income_model '
+                 'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                 'AND time >= ? AND time <= ?'),
+        "month": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+    }
+
     start_date, end_date = ranges[2][0], ranges[2][1]
+    balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+    for favorite in favorites_users:
+        apis = get_api_label_by_user_id(favorite)
+        username = get_username_by_id(user_id=favorite)
+        if len(apis) > 0:
+            for api in apis:
+                full_api = api + "@" + username
+                try:
+                    balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
+                    today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
+                    week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
+                    month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
+                    unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                except Exception as error:
+                    balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
+                    today += zero_value(
+                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
+                    )
+                    week += zero_value(
+                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
+                    )
+                    month += zero_value(
+                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
+                    )
+                    unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
 
-    balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
-    total = get_total_sum_income_by_users_ids(users_ids=tuple(favorites_users))
-    today = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(today_start), end=int(today_end)
-    )
-    week = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(week_start), end=int(week_end)
-    )
-    month = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(month_start), end=int(month_end)
-    )
-    unrealized = get_total_unrealized_pnl_by_users_ids(users_ids=tuple(favorites_users))
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
-
     by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
     by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
 
@@ -2155,7 +2338,11 @@ def users_statistic():
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
-    pnl = [format_dp(zero_value(unrealized)), format_dp(balance)]
+    pnl = [
+        format_dp(zero_value(unrealized)),
+        format_dp(balance),
+        format_dp(zero_value(zero_value(unrealized) / (zero_value(balance) / 100)))
+    ]
     totals = [
         format_dp(zero_value(total)),
         format_dp(zero_value(today)),
@@ -2191,12 +2378,9 @@ def users_statistic():
         lastupdate=get_lastupdate(active_api_label),
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         users_statistic=users_statistic_list,
-        percent_unrealised_pnl=get_percent_unrealised_pnl_for_all(
-            unrealised_pnl=zero_value(unrealized),
-            users_ids=tuple(favorites_users)
-        ),
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/users-statistic/<start>/<end>", methods=["GET"])
 @login_required
@@ -2237,18 +2421,49 @@ def users_statistic_page(start, end):
     month_start = (datetime.combine(datetime.fromisoformat(ranges[4][0]), datetime.min.time()).timestamp() * 1000)
     month_end = (datetime.combine(datetime.fromisoformat(ranges[4][1]), datetime.max.time()).timestamp() * 1000)
 
-    balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
-    total = get_total_sum_income_by_users_ids(users_ids=tuple(favorites_users))
-    today = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(today_start), end=int(today_end)
-    )
-    week = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(week_start), end=int(week_end)
-    )
-    month = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(month_start), end=int(month_end)
-    )
-    unrealized = get_total_unrealized_pnl_by_users_ids(users_ids=tuple(favorites_users))
+    sql = {
+        "total": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"',
+        "balance": "SELECT totalWalletBalance FROM account_model",
+        "today": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "week": ('SELECT SUM(income) FROM income_model '
+                 'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                 'AND time >= ? AND time <= ?'),
+        "month": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+    }
+
+    balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+    for favorite in favorites_users:
+        apis = get_api_label_by_user_id(favorite)
+        username = get_username_by_id(user_id=favorite)
+        if len(apis) > 0:
+            for api in apis:
+                full_api = api + "@" + username
+                try:
+                    balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
+                    today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
+                    week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
+                    month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
+                    unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                except Exception as error:
+                    balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
+                    today += zero_value(
+                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
+                    )
+                    week += zero_value(
+                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
+                    )
+                    month += zero_value(
+                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
+                    )
+                    unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
 
     by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
@@ -2284,7 +2499,11 @@ def users_statistic_page(start, end):
 
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-    pnl = [format_dp(zero_value(unrealized)), format_dp(balance)]
+    pnl = [
+        format_dp(zero_value(unrealized)),
+        format_dp(balance),
+        format_dp(zero_value(zero_value(unrealized) / (zero_value(balance) / 100)))
+    ]
     totals = [
         format_dp(zero_value(total)),
         format_dp(zero_value(today)),
@@ -2319,12 +2538,9 @@ def users_statistic_page(start, end):
         api_label_list=get_api_label_list(),
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
         users_statistic=users_statistic_list,
-        percent_unrealised_pnl=get_percent_unrealised_pnl_for_all(
-            unrealised_pnl=zero_value(unrealized),
-            users_ids=tuple(favorites_users)
-        ),
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
 
 @app.route("/users-statistic-two", methods=["GET"])
 @login_required
@@ -2344,9 +2560,10 @@ def users_statistic_index_two():
         if len(daterange) == 2:
             try:
                 start_date, end_date = daterange[0], daterange[1]
-                return redirect(url_for("main.users_statistic_two_page", start=start_date, end=end_date))
+                return redirect(url_for("main.users_statistic_page_two", start=start_date, end=end_date))
             except Exception:
                 pass
+
     today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
     today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
     week_start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
@@ -2356,19 +2573,55 @@ def users_statistic_index_two():
     start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
     end = (datetime.combine(datetime.fromisoformat(ranges[2][1]), datetime.max.time()).timestamp() * 1000)
 
+    sql = {
+        "total": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"',
+        "balance": "SELECT totalWalletBalance FROM account_model",
+        "today": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "week": ('SELECT SUM(income) FROM income_model '
+                 'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                 'AND time >= ? AND time <= ?'),
+        "month": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+    }
     start_date, end_date = ranges[2][0], ranges[2][1]
     all_totals = []
     for favorite in favorites_users:
-        favorite = (favorite,)
-        balance = get_total_wallet_balance_by_users_ids(users_ids=favorite)
-        total = get_total_sum_income_by_users_ids(users_ids=favorite)
-        today = get_time_sum_income_by_users_ids(users_ids=favorite, start=int(today_start), end=int(today_end))
-        week = get_time_sum_income_by_users_ids(users_ids=favorite, start=int(week_start), end=int(week_end))
-        month = get_time_sum_income_by_users_ids(users_ids=favorite, start=int(month_start), end=int(month_end))
-        unrealized = get_total_unrealized_pnl_by_users_ids(users_ids=favorite)
-        all_fees = get_all_fees_by_users_ids(users_ids=favorite)
-        by_date = get_income_by_date_and_users_ids(users_ids=favorite, start=int(start), end=int(end))
-        by_symbol = get_income_by_symbol_and_users_ids(users_ids=favorite, start=int(start), end=int(end))
+        apis = get_api_label_by_user_id(favorite)
+        username = get_username_by_id(user_id=favorite)
+        if len(apis) == 0:
+            balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+        else:
+            balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+            for api in apis:
+                full_api = api + "@" + username
+                try:
+                    balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
+                    today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
+                    week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
+                    month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
+                    unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                except Exception as error:
+                    balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
+                    today += zero_value(
+                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
+                    )
+                    week += zero_value(
+                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
+                    )
+                    month += zero_value(
+                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
+                    )
+                    unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+
+        all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
+        by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
+        by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
 
         fees = {"USDT": 0, "BNB": 0}
         temp_total: tuple[list[float], list[float]] = ([], [])
@@ -2380,12 +2633,12 @@ def users_statistic_index_two():
             temp_total[1].append(each[0])
             temp_total[0].append(round(profit_period + float(each[1]), 2))
             profit_period += float(each[1])
+
         temp = ([], [])
         for each in by_symbol:
             temp[0].append(each[1])
             temp[1].append(round(float(each[0]), 2))
         by_symbol = temp
-
         if balance == 0.0:
             percentages = ["-", "-", "-", "-"]
         else:
@@ -2397,10 +2650,18 @@ def users_statistic_index_two():
             ]
         for row in all_fees:
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-        pnl = [format_dp(zero_value(unrealized)), format_dp(balance)]
-        all_totals.append(
-            {
-                "username": get_username_by_id(user_id=favorite[0]), "totals": [
+        try:
+            unrealized_percent = zero_value(unrealized) / (zero_value(balance) / 100)
+        except Exception as error:
+            unrealized_percent = 0
+        pnl = [
+            format_dp(zero_value(unrealized)),
+            format_dp(balance),
+            format_dp(zero_value(unrealized_percent))
+        ]
+        all_totals.append({
+            "username": username,
+            "totals": [
                 format_dp(zero_value(total)),
                 format_dp(zero_value(today)),
                 format_dp(zero_value(week)),
@@ -2412,13 +2673,8 @@ def users_statistic_index_two():
                 datetime.now().strftime("%B"),
                 zero_value(week),
                 len(by_symbol[0]),
-            ],
-                "percent_unrealised_pnl": get_percent_unrealised_pnl_for_all(
-                    unrealised_pnl=zero_value(unrealized),
-                    users_ids=tuple(favorite)
-                )
-            }
-        )
+            ]
+        })
 
     balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
     week = get_time_sum_income_by_users_ids(
@@ -2480,9 +2736,10 @@ def users_statistic_index_two():
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
+
 @app.route("/users-statistic-two/<start>/<end>", methods=["GET"])
 @login_required
-def users_statistic_two_page(start, end):
+def users_statistic_page_two(start, end):
     if current_user.status != 'active':
         return redirect(url_for('main.logout_page'))
     if current_user.is_admin == 0:
@@ -2519,30 +2776,70 @@ def users_statistic_two_page(start, end):
     month_start = (datetime.combine(datetime.fromisoformat(ranges[4][0]), datetime.min.time()).timestamp() * 1000)
     month_end = (datetime.combine(datetime.fromisoformat(ranges[4][1]), datetime.max.time()).timestamp() * 1000)
 
+    sql = {
+        "total": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER"',
+        "balance": "SELECT totalWalletBalance FROM account_model",
+        "today": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "week": ('SELECT SUM(income) FROM income_model '
+                 'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                 'AND time >= ? AND time <= ?'),
+        "month": ('SELECT SUM(income) FROM income_model '
+                  'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                  'AND time >= ? AND time <= ?'),
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+    }
+
     all_totals = []
     for favorite in favorites_users:
-        favorite = (favorite,)
-        balance = get_total_wallet_balance_by_users_ids(users_ids=favorite)
-        total = get_total_sum_income_by_users_ids(users_ids=favorite)
-        today = get_time_sum_income_by_users_ids(users_ids=favorite, start=int(today_start), end=int(today_end))
-        week = get_time_sum_income_by_users_ids(users_ids=favorite, start=int(week_start), end=int(week_end))
-        month = get_time_sum_income_by_users_ids(users_ids=favorite, start=int(month_start), end=int(month_end))
-        unrealized = get_total_unrealized_pnl_by_users_ids(users_ids=favorite)
-        all_fees = get_all_fees_by_users_ids(users_ids=favorite)
-        by_date = get_income_by_date_and_users_ids(users_ids=favorite, start=int(start), end=int(end))
-        by_symbol = get_income_by_symbol_and_users_ids(users_ids=favorite, start=int(start), end=int(end))
+        apis = get_api_label_by_user_id(favorite)
+        username = get_username_by_id(user_id=favorite)
+        if len(apis) == 0:
+            balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+        else:
+            balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+            for api in apis:
+                full_api = api + "@" + username
+                try:
+                    balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
+                    today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
+                    week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
+                    month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
+                    unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                except Exception as error:
+                    balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
+                    today += zero_value(
+                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
+                    )
+                    week += zero_value(
+                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
+                    )
+                    month += zero_value(
+                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
+                    )
+                    unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+
+        all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
+        by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
+        by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
 
         fees = {"USDT": 0, "BNB": 0}
+
         temp_total: tuple[list[float], list[float]] = ([], [])
-        custom_frame = get_custom_frame_by_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+
         profit_period = balance - zero_value(week)
         temp: tuple[list[float], list[float]] = ([], [])
+
         for each in by_date:
             temp[0].append(round(float(each[1]), 2))
             temp[1].append(each[0])
             temp_total[1].append(each[0])
             temp_total[0].append(round(profit_period + float(each[1]), 2))
             profit_period += float(each[1])
+
         temp = ([], [])
         for each in by_symbol:
             temp[0].append(each[1])
@@ -2560,34 +2857,35 @@ def users_statistic_two_page(start, end):
             ]
         for row in all_fees:
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-        pnl = [format_dp(zero_value(unrealized)), format_dp(balance)]
-        all_totals.append(
-            {
-                "username": get_username_by_id(user_id=favorite[0]),
-                "totals": [
-                    format_dp(zero_value(total)),
-                    format_dp(zero_value(today)),
-                    format_dp(zero_value(week)),
-                    format_dp(zero_value(month)),
-                    ranges[3],
-                    fees,
-                    percentages,
-                    pnl,
-                    datetime.now().strftime("%B"),
-                    zero_value(custom_frame),
-                    len(by_symbol[0]),
-                ],
-                "percent_unrealised_pnl": get_percent_unrealised_pnl_for_all(
-                    unrealised_pnl=zero_value(unrealized),
-                    users_ids=tuple(favorite)
-                )
-            }
-        )
+
+        try:
+            unrealized_percent = zero_value(unrealized) / (zero_value(balance) / 100)
+        except Exception as error:
+            unrealized_percent = 0
+        pnl = [
+            format_dp(zero_value(unrealized)),
+            format_dp(balance),
+            format_dp(zero_value(unrealized_percent))
+        ]
+
+        all_totals.append({
+            "username": username,
+            "totals": [
+                format_dp(zero_value(total)),
+                format_dp(zero_value(today)),
+                format_dp(zero_value(week)),
+                format_dp(zero_value(month)),
+                ranges[3],
+                fees,
+                percentages,
+                pnl,
+                datetime.now().strftime("%B"),
+                zero_value(week),
+                len(by_symbol[0]),
+            ]
+        })
 
     balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
-    week = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(week_start), end=int(week_end)
-    )
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
 
     by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
@@ -2624,7 +2922,7 @@ def users_statistic_two_page(start, end):
         is_admin=current_user.is_admin == 1,
 
         len_by_symbol=len(by_symbol[0]),
-        zero_week=zero_value(week),
+        zero_week=zero_value(custom_frame),
 
         coin_list=get_coins(active_api_label),
 
@@ -2642,89 +2940,3 @@ def users_statistic_two_page(start, end):
         users_statistic=users_statistic_list,
         favorites_users=len(favorites.get_user_favorite) > 0
     )
-
-# <<<-------------------------------------------->>> APIS <<<-------------------------------------------------------->>>
-
-@app.route("/reset-password-api-route", methods=["POST"])
-def reset_password_for_user_telebot():
-    if request.method == "POST":
-        if not request.json or "chatID" not in request.json:
-            return jsonify({"message": False})
-        else:
-            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
-            if user_id is None:
-                return jsonify({"message": "It was not reset, the user was not found in the system"})
-            user = UserModel.query.get(user_id.user_id)
-            if user:
-                if ResetPasswordModel.query.filter_by(user_id=user.id).first():
-                    if is_have_time(timestamp=ResetPasswordModel.query.filter_by(user_id=user.id).first().reg_time):
-                        return jsonify({"message": "The message has already been sent!!"})
-                    else:
-                        ResetPasswordModel.query.filter_by(user_id=user.id).delete()
-                        db.session.commit()
-                create_token = ResetPasswordModel(
-                    code=generate_token_code(),
-                    user_id=user.id,
-                    reg_time=int(datetime.timestamp(datetime.now()))
-                )
-                db.session.add(create_token)
-                db.session.commit()
-                send_mail(user, token=create_token.code)
-                return jsonify({"message": "Reset request sent. Check your email."})
-            else:
-                return jsonify({"message": "It was not reset, the user was not found in the system"})
-
-@app.route("/get-user-by-chat-id", methods=["POST"])
-def get_user_by_chat_id_for_user_telebot():
-    if request.method == "POST":
-        if not request.json or "chatID" not in request.json:
-            return jsonify({"message": False})
-        else:
-            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
-            if user_id is None:
-                return jsonify({"message": "Not found"})
-            user = UserModel.query.get(user_id.user_id)
-            if user:
-                is_admin = False
-                if str(request.json["chatID"]) in ADMIN_IDS or user.is_admin == 1:
-                    is_admin = True
-                return jsonify({
-                    "message": user.username,
-                    "is_admin": is_admin
-                })
-            else:
-                return jsonify({"message": "Not found"})
-
-@app.route("/get-balance-by-chat-id", methods=["POST"])
-def get_balance_by_chat_id_for_user_telebot():
-    if request.method == "POST":
-        if not request.json or "chatID" not in request.json:
-            return jsonify({"message": False})
-        else:
-            user_id = TelegramBotModel.query.filter_by(chat_id=request.json["chatID"]).first()
-            if user_id is None:
-                return jsonify({"message": "Not found"})
-            user = UserModel.query.get(user_id.user_id)
-            if user:
-                return jsonify({"message": "%.8f" % user.budget})
-            else:
-                return jsonify({"message": "Not found"})
-
-@app.route("/get-info_s-by-chat-id", methods=["POST"])
-def get_info_s_by_chat_id_for_admin_telebot():
-    if request.method == "POST":
-        if not request.json or "chatID" not in request.json:
-            return jsonify({"message": False})
-        else:
-            if str(request.json["chatID"]) not in ADMIN_IDS:
-                return jsonify({"message": "Not found"})
-            if str(request.json["chatID"]) in ADMIN_IDS:
-                res = []
-                for user in get_users():
-                    if decimals.create_decimal(user["budget"]) > 0:
-                        res.append(
-                            {"username": user["username"], "balance": user["budget"]}
-                        )
-                return jsonify({"message": res})
-            else:
-                return jsonify({"message": "You not admin"})
