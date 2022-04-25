@@ -34,10 +34,10 @@ from addition.tron_net.is_activate import is_activate
 from addition.referral.ref import is_ref
 from addition.referral.reg_user import search_by_ref_code
 from addition.referral.get_ref import get_ref_info_by_user_id
-from addition.helper.pnl import get_percent_unrealised_pnl, get_percent_unrealised_pnl_for_all
+from addition.helper.pnl import get_percent_unrealised_pnl
 
 from addition.db_wallet import *
-from addition.config import BOT_NAME, ADMIN_IDS, decimals, logger
+from addition.config import BOT_NAME, ADMIN_IDS, decimals, logger, ref_link
 from addition.report.generate_report import get_report_by_all_users
 from addition.report.report_all_period import get_report_for_all_time
 from addition.report.to_excel import write_to_excel
@@ -503,6 +503,7 @@ def api_page(active_api_label=""):
         add_form=add_form,
         active_api_label=active_api_label,
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
+        ref_link=ref_link,
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
