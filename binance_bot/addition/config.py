@@ -49,3 +49,9 @@ USERS_TO_FAVORITES_FILE_PATH = os.path.join(BASE_FILE, "favorites.json")
 
 PDF_FILE_PATH = os.path.join(BASE_STATIC, "MyBotSetupInstructions.pdf")
 EXCEL_FILE_PATH = os.path.join(BASE_STATIC, "report.xlsx")
+
+ref_link = {
+    "binance": os.getenv("BINANCE_REF_LINK", "http://Binance.ref"),
+    "by_bit": os.getenv("BYBIY_REF_LINK", "http://ByBit.ref"),
+    "vpn": os.getenv("VPN_REF_LINK", "http://VPN.ref"),
+}
