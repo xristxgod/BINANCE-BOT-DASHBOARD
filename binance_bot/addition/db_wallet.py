@@ -224,7 +224,7 @@ def get_capital():
         connection = sqlite3.connect(db_path)
         connection.row_factory = dict_factory
         cursor = connection.cursor()
-        return cursor.execute("SELECT SUM(totalWalletBalance) as totalCapital FROM account_model").fetchone()
+        return cursor.execute("SELECT SUM(totalWalletBalance) as totalCapital FROM account_model where user_id = 2").fetchone()
     except Exception as error:
         raise error
     finally:
@@ -238,7 +238,7 @@ def get_pnl_all_time():
         connection.row_factory = dict_factory
         cursor = connection.cursor()
         data = cursor.execute(
-            f'SELECT SUM(income) as totalIncome FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER";'
+            f'SELECT SUM(income) as totalIncome FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND user_id = 2;'
         ).fetchone()
         return data
     except Exception as error:
@@ -254,7 +254,7 @@ def get_unrealized_pnl_all_time():
         connection.row_factory = dict_factory
         cursor = connection.cursor()
         data = cursor.execute(
-            f'SELECT SUM(unrealizedProfit) as totalUnrealizedPNL FROM positions_model;'
+            f'SELECT SUM(unrealizedProfit) as totalUnrealizedPNL FROM positions_model where user_id = 2;'
         ).fetchone()
         return data
     except Exception as error:
@@ -623,6 +623,28 @@ def get_api_label_by_user_id(user_id: int):
             return [d[0] for d in data]
         else:
             return []
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+            
+def get_users_info_by_users_ids_two(user_id: int) -> typing.Dict:
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        connection.row_factory = dict_factory
+        cursor = connection.cursor()
+        data = cursor.execute((
+            f"SELECT username, budget, email_address AS email FROM user_model WHERE id={user_id};"
+        )).fetchone()
+        return {
+            "username": data["username"],
+            "balanceUSDT": data["budget"],
+            "email": data["email"],
+            "totalBalanceBinance": 0,
+            "apisLabel": []
+        }
     except Exception as error:
         raise error
     finally:
