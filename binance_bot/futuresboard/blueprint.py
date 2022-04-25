@@ -475,7 +475,7 @@ def api_page(active_api_label=""):
                 return redirect(url_for('main.api_page'))
         if add_form.validate_on_submit():
             api_credentials = {}
-            exchange_name = 'binance'
+            exchange_name = 'binance'                           # bybit
             added_api = request.form.get('added_api_label')
             if added_api != None:
                 added_api = add_form.api_name.data
@@ -485,6 +485,7 @@ def api_page(active_api_label=""):
                     if not added_api in get_api_label_list():
                         CredentialManager.set_credentials(added_api, exchange_name, api_credentials,
                                                           current_user.username)
+                        scraper.scrape(added_api, app)
                     else:
                         flash(f"Could not add or update {added_api} as it is already added", category='danger')
                 else:
@@ -652,13 +653,13 @@ def index_page(active_api_label=""):
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
     try:
-        unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+        unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized[0]) / (zero_value(balance) / 100))
     except Exception as error:
         unrealized_percent = 0
     pnl = [
         format_dp(zero_value(unrealized[0])),
         format_dp(balance),
-        format_dp(zero_value(unrealized_percent))
+        unrealized_percent
     ]
 
     totals = [
@@ -846,13 +847,13 @@ def dashboard_page(start, end, active_api_label=""):
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
     try:
-        unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+        unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized[0]) / (zero_value(balance) / 100))
     except Exception as error:
         unrealized_percent = 0
     pnl = [
         format_dp(zero_value(unrealized[0])),
         format_dp(balance),
-        format_dp(zero_value(unrealized_percent))
+        unrealized_percent
     ]
 
     totals = [
@@ -1108,13 +1109,13 @@ def coin_page(coin, active_api_label=""):
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
         try:
-            unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+            unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized[0]) / (zero_value(balance) / 100))
         except Exception as error:
             unrealized_percent = 0
         pnl = [
             format_dp(zero_value(unrealized[0])),
             format_dp(balance),
-            format_dp(zero_value(unrealized_percent))
+            unrealized_percent
         ]
 
         totals = [
@@ -1351,13 +1352,13 @@ def coin_page_timeframe(coin, start, end, active_api_label=""):
         by_date = temp
 
         try:
-            unrealized_percent = zero_value(unrealized[0]) / (zero_value(balance) / 100)
+            unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized[0]) / (zero_value(balance) / 100))
         except Exception as error:
             unrealized_percent = 0
         pnl = [
             format_dp(zero_value(unrealized[0])),
             format_dp(balance),
-            format_dp(zero_value(unrealized_percent))
+            unrealized_percent
         ]
 
         customframe = db_manager.query(active_api_label,
@@ -2277,21 +2278,25 @@ def users_statistic():
 
     start_date, end_date = ranges[2][0], ranges[2][1]
     balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+    __users = []
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
-        username = get_username_by_id(user_id=favorite)
+        user_info = get_users_info_by_users_ids_two(user_id=favorite)
         if len(apis) > 0:
+            balance_user = 0
             for api in apis:
-                full_api = api + "@" + username
+                full_api = api + "@" + user_info["username"]
                 try:
-                    balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    balance += balance_user
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
                     today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
                 except Exception as error:
-                    balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    balance += balance_user
                     total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
                     today += zero_value(
                         db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
@@ -2303,7 +2308,13 @@ def users_statistic():
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-
+                user_info["apisLabel"].append({
+                    "apiLabelName": api,
+                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                })
+            user_info["totalBalanceBinance"] = balance_user
+            __users.append(user_info)
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
     by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
     by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
@@ -2338,11 +2349,14 @@ def users_statistic():
         ]
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-
+    try:
+        unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
+    except Exception as error:
+        unrealized_percent = 0
     pnl = [
         format_dp(zero_value(unrealized)),
         format_dp(balance),
-        format_dp(zero_value(zero_value(unrealized) / (zero_value(balance) / 100)))
+        unrealized_percent
     ]
     totals = [
         format_dp(zero_value(total)),
@@ -2359,7 +2373,8 @@ def users_statistic():
     ]
 
     active_api_label = get_default_api_label()
-    users_statistic_list = get_users_statistic(ids=favorites_users)
+    # users_statistic_list = get_users_statistic(ids=favorites_users)
+    users_statistic_list = __users
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2436,23 +2451,26 @@ def users_statistic_page(start, end):
                   'AND time >= ? AND time <= ?'),
         "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
     }
-
+    __users = []
     balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
-        username = get_username_by_id(user_id=favorite)
+        user_info = get_users_info_by_users_ids_two(user_id=favorite)
         if len(apis) > 0:
+            balance_user = 0
             for api in apis:
-                full_api = api + "@" + username
+                full_api = api + "@" + user_info["username"]
                 try:
-                    balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    balance += balance_user
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
                     today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
                 except Exception as error:
-                    balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    balance += balance_user
                     total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
                     today += zero_value(
                         db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
@@ -2464,7 +2482,13 @@ def users_statistic_page(start, end):
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-
+                user_info["apisLabel"].append({
+                    "apiLabelName": api,
+                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                })
+            user_info["totalBalanceBinance"] = balance_user
+            __users.append(user_info)
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
 
     by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
@@ -2500,10 +2524,14 @@ def users_statistic_page(start, end):
 
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
+    try:
+        unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
+    except Exception as error:
+        unrealized_percent = 0
     pnl = [
         format_dp(zero_value(unrealized)),
         format_dp(balance),
-        format_dp(zero_value(zero_value(unrealized) / (zero_value(balance) / 100)))
+        unrealized_percent
     ]
     totals = [
         format_dp(zero_value(total)),
@@ -2520,7 +2548,8 @@ def users_statistic_page(start, end):
     ]
 
     active_api_label = get_default_api_label()
-    users_statistic_list = get_users_statistic(ids=favorites_users)
+    # users_statistic_list = get_users_statistic(ids=favorites_users)
+    users_statistic_list = __users
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2561,7 +2590,7 @@ def users_statistic_index_two():
         if len(daterange) == 2:
             try:
                 start_date, end_date = daterange[0], daterange[1]
-                return redirect(url_for("main.users_statistic_page_two", start=start_date, end=end_date))
+                return redirect(url_for("main.users_statistic_two_page", start=start_date, end=end_date))
             except Exception:
                 pass
 
@@ -2589,16 +2618,20 @@ def users_statistic_index_two():
         "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
     }
     start_date, end_date = ranges[2][0], ranges[2][1]
+
+    __users = []
     all_totals = []
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
-        username = get_username_by_id(user_id=favorite)
+
+        user_info = get_users_info_by_users_ids_two(user_id=favorite)
         if len(apis) == 0:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+            user_info["totalBalanceBinance"] = balance
         else:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
             for api in apis:
-                full_api = api + "@" + username
+                full_api = api + "@" + user_info["username"]
                 try:
                     balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
@@ -2609,9 +2642,7 @@ def users_statistic_index_two():
                 except Exception as error:
                     balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
-                    today += zero_value(
-                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
-                    )
+                    today += zero_value(db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0])
                     week += zero_value(
                         db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
                     )
@@ -2619,7 +2650,12 @@ def users_statistic_index_two():
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-
+                user_info["apisLabel"].append({
+                    "apiLabelName": api,
+                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                })
+            user_info["totalBalanceBinance"] = balance
         all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
         by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
         by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
@@ -2652,16 +2688,17 @@ def users_statistic_index_two():
         for row in all_fees:
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
         try:
-            unrealized_percent = zero_value(unrealized) / (zero_value(balance) / 100)
+            unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
         except Exception as error:
             unrealized_percent = 0
         pnl = [
             format_dp(zero_value(unrealized)),
             format_dp(balance),
-            format_dp(zero_value(unrealized_percent))
+            unrealized_percent
         ]
+        __users.append(user_info)
         all_totals.append({
-            "username": username,
+            "username": user_info["username"],
             "totals": [
                 format_dp(zero_value(total)),
                 format_dp(zero_value(today)),
@@ -2709,7 +2746,8 @@ def users_statistic_index_two():
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
     active_api_label = get_default_api_label()
-    users_statistic_list = get_users_statistic(ids=favorites_users)
+    # users_statistic_list = get_users_statistic(ids=favorites_users)
+    users_statistic_list = __users
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2740,7 +2778,7 @@ def users_statistic_index_two():
 
 @app.route("/users-statistic-two/<start>/<end>", methods=["GET"])
 @login_required
-def users_statistic_page_two(start, end):
+def users_statistic_two_page(start, end):
     if current_user.status != 'active':
         return redirect(url_for('main.logout_page'))
     if current_user.is_admin == 0:
@@ -2768,7 +2806,7 @@ def users_statistic_page_two(start, end):
         end = datetime.combine(datetime.fromisoformat(end), datetime.max.time()).timestamp() * 1000
     except Exception:
         start_date, end_date = ranges[2][0], ranges[2][1]
-        return redirect(url_for("main.dashboard_page", start=start_date, end=end_date))
+        return redirect(url_for("main.users_statistic_two_page", start=start_date, end=end_date))
 
     today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
     today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
@@ -2791,17 +2829,18 @@ def users_statistic_page_two(start, end):
                   'AND time >= ? AND time <= ?'),
         "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
     }
-
+    __users = []
     all_totals = []
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
-        username = get_username_by_id(user_id=favorite)
+        user_info = get_users_info_by_users_ids_two(user_id=favorite)
         if len(apis) == 0:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+            user_info["totalBalanceBinance"] = balance
         else:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
             for api in apis:
-                full_api = api + "@" + username
+                full_api = api + "@" + user_info["username"]
                 try:
                     balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
@@ -2822,7 +2861,12 @@ def users_statistic_page_two(start, end):
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-
+                user_info["apisLabel"].append({
+                    "apiLabelName": api,
+                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                })
+            user_info["totalBalanceBinance"] = balance
         all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
         by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
         by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
@@ -2860,17 +2904,18 @@ def users_statistic_page_two(start, end):
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
         try:
-            unrealized_percent = zero_value(unrealized) / (zero_value(balance) / 100)
+            unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
         except Exception as error:
             unrealized_percent = 0
         pnl = [
             format_dp(zero_value(unrealized)),
             format_dp(balance),
-            format_dp(zero_value(unrealized_percent))
+            unrealized_percent
         ]
 
+        __users.append(user_info)
         all_totals.append({
-            "username": username,
+            "username": user_info["username"],
             "totals": [
                 format_dp(zero_value(total)),
                 format_dp(zero_value(today)),
@@ -2914,7 +2959,8 @@ def users_statistic_page_two(start, end):
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
     active_api_label = get_default_api_label()
-    users_statistic_list = get_users_statistic(ids=favorites_users)
+    # users_statistic_list = get_users_statistic(ids=favorites_users)
+    users_statistic_list = __users
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
