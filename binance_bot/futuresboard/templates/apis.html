@@ -5,41 +5,68 @@ Api Management Page
 {% block content %}
 
 <div class="row" style="margin-top:20px; margin-left:20px">
-       <h2>APIs</h2>
-       <br>
-      {% set api_label = ""%}
-      <table class="table table-hover table-light">
-         <thead>
-            <tr>
-               <!-- Your Columns HERE -->
-               <th scope="col">ID</th>
-               <th scope="col">Name</th>
-               <th scope="col" style="text-align:right">Options</th>
-            </tr>
-         </thead>
-         <tbody>
-            <!-- Your rows inside the table HERE: -->
-            {% for api_label in api_label_list %}  
-            {% include 'includes/api_modals.html' %}
-            <tr>
-               <td>{{loop.index0}}</td>
-               <td>{{ api_label }}</td>
-               <td style="text-align:right">
-                  <button class="btn btn-outline btn-danger" data-toggle="modal" data-target="#Modal-RemoveConfirm-{{ api_label }}">Remove</button>
-               </td>
-            </tr>
-            {% endfor %}
-         </tbody>
-      </table>
-      {% include 'includes/api_modals.html' %}
-      <button class="btn btn-outline btn-success" data-toggle="modal" data-target="#Modal-Add">Add new API</button>
-      <br>
+    <h2>APIs</h2>
+    <br>
+    {% set api_label = ""%}
+    <table class="table table-hover table-light">
+        <thead>
+        <tr>
+            <!-- Your Columns HERE -->
+            <th scope="col">ID</th>
+            <th scope="col">Name</th>
+            <th scope="col" style="text-align:right">Options</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Your rows inside the table HERE: -->
+        {% for api_label in api_label_list %}
+        {% include 'includes/api_modals.html' %}
+        <tr>
+            <td>{{loop.index0}}</td>
+            <td>{{ api_label }}</td>
+            <td style="text-align:right">
+                <button class="btn btn-outline btn-danger" data-toggle="modal" data-target="#Modal-RemoveConfirm-{{ api_label }}">Remove</button>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% include 'includes/api_modals.html' %}
+    <button class="btn btn-outline btn-success" data-toggle="modal" data-target="#Modal-Add">Add new API</button>
+    <br>
+
     <div class="checkbox mb-3">
-          <a href="{{ url_for('static', filename='MyBotSetupInstructions.pdf') }}" download="MyBotSetupInstructions.pdf">
+        <a href="{{ url_for('static', filename='MyBotSetupInstructions.pdf') }}" download="MyBotSetupInstructions.pdf">
             <button type="button" class="btn btn-secondary" style="width: 100%; text-align: center; margin-top: 20px">
                 Download instructions
             </button>
-          </a>
+        </a>
     </div>
+
+    <div class="row g-3 align-items-center">
+        <div class="col-auto">
+            <h6>Don't have an account at Binance.com? Click to signup: Binance.ref: </h6>
+        </div>
+        <div class="col-auto">
+            <a class="btn btn-warning" href="{{ ref_link['binance'] }}" target="_blank">Click me</a>
+        </div>
+
+        <div class="col-auto">
+            <h6>Don't have an account at ByBit.com? Click to signup: ByBit.ref:</h6>
+        </div>
+        <div class="col-auto">
+            <a class="btn btn-dark" href="{{ ref_link['by_bit'] }}" target="_blank">Click me</a>
+        </div>
+
+        <div class="col-auto">
+            <h6>Don't have a good VPN service? Click to signup and get 30 days free access:</h6>
+        </div>
+        <div class="col-auto">
+            <a class="btn btn-light" href="{{ ref_link['vpn'] }}" target="_blank">Click me</a>
+        </div>
+    </div>
+
 </div>
+
+
 {% endblock %}
