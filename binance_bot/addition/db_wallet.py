@@ -650,3 +650,53 @@ def get_users_info_by_users_ids_two(user_id: int) -> typing.Dict:
     finally:
         if connection is not None:
             connection.close()
+            
+def get_user_admin():
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        return [i[0] for i in cursor.execute(
+            f'SELECT id FROM user_model WHERE is_admin = 1;'
+        ).fetchall()]
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def del_api_by_id(api_label: str, user_id: int):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        cursor.executescript((
+            f"DELETE FROM account_model WHERE api_label='{api_label}' AND user_id={user_id}; "
+            f"DELETE FROM income_model WHERE api_label = '{api_label}' AND user_id = {user_id}; "
+            f"DELETE FROM positions_model WHERE api_label = '{api_label}' AND user_id = {user_id}; "
+            f"DELETE FROM orders_model WHERE api_label = '{api_label}' AND user_id = {user_id};"
+        ))
+        connection.commit()
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
+
+def del_api(api_label: str):
+    connection = None
+    try:
+        connection = sqlite3.connect(db_path)
+        cursor = connection.cursor()
+        cursor.executescript((
+            f"DELETE FROM account_model WHERE api_label='{api_label}'; "
+            f"DELETE FROM income_model WHERE api_label = '{api_label}'; "
+            f"DELETE FROM positions_model WHERE api_label = '{api_label}'; "
+            f"DELETE FROM orders_model WHERE api_label = '{api_label}';"
+        ))
+        connection.commit()
+    except Exception as error:
+        raise error
+    finally:
+        if connection is not None:
+            connection.close()
