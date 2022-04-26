@@ -469,19 +469,33 @@ def api_page(active_api_label=""):
             if removed_api != None:
                 if removed_api in get_api_label_list():
                     CredentialManager.remove_credentials(removed_api, current_user.username)
+                    if removed_api.find("@") > 0 and current_user.is_admin:
+                        for i in get_user_admin():
+                            del_api_by_id(removed_api, user_id=i)
+                        del_api(removed_api[:removed_api.find("@")])
+                    elif removed_api.find("@") < 0 and not current_user.is_admin:
+                        for i in get_user_admin():
+                            del_api_by_id(removed_api + "@" + current_user.username,  user_id=i)
+                        del_api(removed_api)
                 else:
                     flash(f"Could not remove API: {removed_api}!", category='danger')
 
                 return redirect(url_for('main.api_page'))
         if add_form.validate_on_submit():
             api_credentials = {}
-            exchange_name = 'binance'                           # bybit
             added_api = request.form.get('added_api_label')
             if added_api != None:
                 added_api = add_form.api_name.data
                 api_credentials['apiKey'] = add_form.api_key.data
                 api_credentials['secret'] = add_form.secret_key.data
-                if api_credentials_ok(api_credentials, exchange_name):
+
+                if api_credentials_ok(api_credentials, "bybit"):
+                    exchange_name = "bybit"
+                elif api_credentials_ok(api_credentials, "binance"):
+                    exchange_name = "binance"
+                else:
+                    exchange_name = None
+                if exchange_name is not None:
                     if not added_api in get_api_label_list():
                         CredentialManager.set_credentials(added_api, exchange_name, api_credentials,
                                                           current_user.username)
@@ -489,8 +503,7 @@ def api_page(active_api_label=""):
                     else:
                         flash(f"Could not add or update {added_api} as it is already added", category='danger')
                 else:
-                    flash(f"Could not add  {added_api}, please check credential values and API permissions",
-                          category='danger')
+                    flash(f"Could not add  {added_api}, please check credential values and API permissions", "danger")
                 return redirect(url_for('main.api_page'))
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2294,6 +2307,11 @@ def users_statistic():
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    })
                 except Exception as error:
                     balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     balance += balance_user
@@ -2308,11 +2326,11 @@ def users_statistic():
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-                user_info["apisLabel"].append({
-                    "apiLabelName": api,
-                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
-                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
-                })
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    })
             user_info["totalBalanceBinance"] = balance_user
             __users.append(user_info)
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
@@ -2468,6 +2486,11 @@ def users_statistic_page(start, end):
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    })
                 except Exception as error:
                     balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     balance += balance_user
@@ -2482,11 +2505,11 @@ def users_statistic_page(start, end):
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-                user_info["apisLabel"].append({
-                    "apiLabelName": api,
-                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
-                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
-                })
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    })
             user_info["totalBalanceBinance"] = balance_user
             __users.append(user_info)
     all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
@@ -2632,6 +2655,7 @@ def users_statistic_index_two():
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
             for api in apis:
                 full_api = api + "@" + user_info["username"]
+                print(full_api)
                 try:
                     balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
@@ -2639,6 +2663,11 @@ def users_statistic_index_two():
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    })
                 except Exception as error:
                     balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
@@ -2650,11 +2679,11 @@ def users_statistic_index_two():
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-                user_info["apisLabel"].append({
-                    "apiLabelName": api,
-                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
-                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
-                })
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    })
             user_info["totalBalanceBinance"] = balance
         all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
         by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
@@ -2848,6 +2877,11 @@ def users_statistic_two_page(start, end):
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    })
                 except Exception as error:
                     balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
@@ -2861,11 +2895,11 @@ def users_statistic_two_page(start, end):
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
-                user_info["apisLabel"].append({
-                    "apiLabelName": api,
-                    "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
-                    "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
-                })
+                    user_info["apisLabel"].append({
+                        "apiLabelName": api,
+                        "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
+                        "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    })
             user_info["totalBalanceBinance"] = balance
         all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
         by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
