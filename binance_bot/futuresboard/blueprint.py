@@ -484,18 +484,12 @@ def api_page(active_api_label=""):
         if add_form.validate_on_submit():
             api_credentials = {}
             added_api = request.form.get('added_api_label')
+            exchange_name = "binance"
             if added_api != None:
                 added_api = add_form.api_name.data
                 api_credentials['apiKey'] = add_form.api_key.data
                 api_credentials['secret'] = add_form.secret_key.data
-
-                if api_credentials_ok(api_credentials, "bybit"):
-                    exchange_name = "bybit"
-                elif api_credentials_ok(api_credentials, "binance"):
-                    exchange_name = "binance"
-                else:
-                    exchange_name = None
-                if exchange_name is not None:
+                if api_credentials_ok(api_credentials, exchange_name):
                     if not added_api in get_api_label_list():
                         CredentialManager.set_credentials(added_api, exchange_name, api_credentials,
                                                           current_user.username)
