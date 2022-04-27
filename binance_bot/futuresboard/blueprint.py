@@ -2104,7 +2104,6 @@ def reset_password_for_user_telebot():
             else:
                 return jsonify({"message": "It was not reset, the user was not found in the system"})
 
-
 @app.route("/get-user-by-chat-id", methods=["POST"])
 def get_user_by_chat_id_for_user_telebot():
     if request.method == "POST":
@@ -2126,7 +2125,6 @@ def get_user_by_chat_id_for_user_telebot():
             else:
                 return jsonify({"message": "Not found"})
 
-
 @app.route("/get-balance-by-chat-id", methods=["POST"])
 def get_balance_by_chat_id_for_user_telebot():
     if request.method == "POST":
@@ -2141,7 +2139,6 @@ def get_balance_by_chat_id_for_user_telebot():
                 return jsonify({"message": "%.8f" % user.budget})
             else:
                 return jsonify({"message": "Not found"})
-
 
 @app.route("/get-info_s-by-chat-id", methods=["POST"])
 def get_info_s_by_chat_id_for_admin_telebot():
@@ -2162,7 +2159,7 @@ def get_info_s_by_chat_id_for_admin_telebot():
             else:
                 return jsonify({"message": "You not admin"})
 
-# <<<-------------------------------------------->>> STATISTIC <<<--------------------------------------------------->>>
+# <<<-------------------------------------------->>> FAVORITES <<<--------------------------------------------------->>>
 
 @app.route("/favorites", methods=["GET", "POST"])
 @login_required
@@ -2236,6 +2233,7 @@ def favorites_page():
         favorites_users=len(favorites.get_user_favorite) > 0
     )
 
+# <<<-------------------------------------------->>> STATISTIC <<<--------------------------------------------------->>>
 
 @app.route("/users-statistic", methods=["GET"])
 @login_required
@@ -2248,7 +2246,6 @@ def users_statistic():
     if len(favorites_users) == 0:
         flash("Choose your favorites!", category="success")
         return redirect(url_for("main.favorites_page"))
-
     daterange = request.args.get("daterange")
     ranges = timeranges()
     if daterange is not None:
@@ -2259,6 +2256,7 @@ def users_statistic():
                 return redirect(url_for("main.users_statistic_page", start=start_date, end=end_date))
             except Exception:
                 pass
+
     today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
     today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
     week_start = (datetime.combine(datetime.fromisoformat(ranges[2][0]), datetime.min.time()).timestamp() * 1000)
@@ -2280,60 +2278,188 @@ def users_statistic():
         "month": ('SELECT SUM(income) FROM income_model '
                   'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
                   'AND time >= ? AND time <= ?'),
-        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model",
+        "all_fees": 'SELECT SUM(income), asset FROM income_model WHERE incomeType ="COMMISSION" GROUP BY asset',
+        "by_date": 'SELECT DATE(time / 1000, "unixepoch") AS Date, SUM(income) AS inc FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ?  AND time <= ? GROUP BY Date',
+        "by_symbol": 'SELECT SUM(income) AS inc, symbol FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ? GROUP BY symbol ORDER BY inc DESC'
     }
 
     start_date, end_date = ranges[2][0], ranges[2][1]
-    balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
-    __users = []
+    users_card_statistic, all_totals, all_apis_info = [], [], []
+    totals_by_all_apis = {
+        "balance": 0,
+        "total": 0,
+        "today": 0,
+        "week": 0,
+        "month": 0,
+        "unrealized": 0
+    }
+    all_pos_for_rep = {
+        "fees": {"USDT": 0, "BNB": 0},
+        "by_symbol": [],
+        "by_date": []
+    }
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
         user_info = get_users_info_by_users_ids_two(user_id=favorite)
-        if len(apis) > 0:
-            balance_user = 0
+        if len(apis) == 0:
+            all_totals.append({
+                "username": user_info["username"],
+                "api_name": "Missing...",
+                "totals": [
+                    format_dp(zero_value(0)),
+                    format_dp(zero_value(0)),
+                    format_dp(zero_value(0)),
+                    format_dp(zero_value(0)),
+                    ranges[3],
+                    {"USDT": 0, "BNB": 0},
+                    ["-", "-", "-", "-"],
+                    [format_dp(zero_value(0)), format_dp(zero_value(0)), format_dp(zero_value(0))],
+                    datetime.now().strftime("%B"),
+                    zero_value(format_dp(zero_value(0))),
+                    0,
+                ]
+            })
+        else:
+            total_binance_balance = 0
             for api in apis:
-                full_api = api + "@" + user_info["username"]
                 try:
-                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
-                    balance += balance_user
-                    total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
-                    today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
-                    week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
-                    month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
-                    unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    full_api = api + "@" + user_info["username"]
+                    balance = zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total_binance_balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total = zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
+                    today = zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
+                    week = zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
+                    month = zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
+                    unrealized = zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    all_fees = db_manager.query(full_api, sql["all_fees"])
+                    by_date = db_manager.query(full_api, sql["by_date"], [start, end])
+                    by_symbol = db_manager.query(full_api, sql["by_symbol"], [start, end])
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
-                        "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
-                        "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                        "totalIncome": total,
+                        "balanceBinance": "%.4f" % balance
                     })
                 except Exception as error:
-                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
-                    balance += balance_user
-                    total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
-                    today += zero_value(
-                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
-                    )
-                    week += zero_value(
-                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
-                    )
-                    month += zero_value(
-                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
-                    )
-                    unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+                    balance = zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total_binance_balance += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total = zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
+                    today = zero_value(db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0])
+                    week = zero_value(db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0])
+                    month = zero_value(db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0])
+                    unrealized = zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+                    all_fees = db_manager.query(api, sql["all_fees"], user_ids=favorite)
+                    by_date = db_manager.query(api, sql["by_date"], [start, end], user_ids=favorite)
+                    by_symbol = db_manager.query(api, sql["by_symbol"], [start, end], user_ids=favorite)
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
-                        "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
-                        "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                        "totalIncome": total,
+                        "balanceBinance": "%.4f" % balance
                     })
-            user_info["totalBalanceBinance"] = balance_user
-            __users.append(user_info)
-    all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
-    by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
-    by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
 
+                totals_by_all_apis["balance"] += balance
+                totals_by_all_apis["total"] += total
+                totals_by_all_apis["today"] += today
+                totals_by_all_apis["week"] += week
+                totals_by_all_apis["month"] += month
+                totals_by_all_apis["unrealized"] += unrealized
+
+                fees = {"USDT": 0, "BNB": 0}
+                balance = float(balance)
+                temptotal: tuple[list[float], list[float]] = ([], [])
+                profit_period = balance - zero_value(week)
+                temp: tuple[list[float], list[float]] = ([], [])
+                for each in by_date:
+                    temp[0].append(round(float(each[1]), 2))
+                    temp[1].append(each[0])
+                    temptotal[1].append(each[0])
+                    temptotal[0].append(round(profit_period + float(each[1]), 2))
+                    profit_period += float(each[1])
+                    all_pos_for_rep["by_date"] = helper_by_date(dates=each[0], amount=each[1], have_date=all_pos_for_rep["by_date"])
+                temp = ([], [])
+                for each in by_symbol:
+                    temp[0].append(each[1])
+                    temp[1].append(round(float(each[0]), 2))
+                    all_pos_for_rep["by_symbol"] = helper(coin=each[1], amount=each[0], have_coins=all_pos_for_rep["by_symbol"])
+                by_symbol = temp
+                if balance == 0.0:
+                    percentages = ["-", "-", "-", "-"]
+                else:
+                    percentages = [
+                        format_dp(zero_value(today) / balance * 100),
+                        format_dp(zero_value(week) / balance * 100),
+                        format_dp(zero_value(month) / balance * 100),
+                        format_dp(zero_value(total) / balance * 100),
+                    ]
+                for row in all_fees:
+                    all_pos_for_rep["fees"][row[1]] += abs(zero_value(row[0]))
+                    fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
+                try:
+                    unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
+                except Exception as error:
+                    unrealized_percent = 0
+                pnl = [
+                    format_dp(zero_value(unrealized)),
+                    format_dp(balance),
+                    unrealized_percent
+                ]
+                all_totals.append({
+                    "username": user_info["username"],
+                    "api_name": api,
+                    "totals": [
+                        format_dp(zero_value(total)),
+                        format_dp(zero_value(today)),
+                        format_dp(zero_value(week)),
+                        format_dp(zero_value(month)),
+                        ranges[3],
+                        fees,
+                        percentages,
+                        pnl,
+                        datetime.now().strftime("%B"),
+                        zero_value(week),
+                        len(by_symbol[0]),
+                    ]
+                })
+            user_info["totalBalanceBinance"] = total_binance_balance
+            users_card_statistic.append(user_info)
+    try:
+        total_unrealized_percent = format_dp(decimals.create_decimal(zero_value(totals_by_all_apis["unrealized"]) / (zero_value(totals_by_all_apis["balance"]) / 100)))
+    except Exception as error:
+        total_unrealized_percent = 0
+
+    try:
+        today_total = format_dp(zero_value(totals_by_all_apis["today"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        today_total = 0
+
+    try:
+        week_total = format_dp(zero_value(totals_by_all_apis["week"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        week_total = 0
+
+    try:
+        month_total = format_dp(zero_value(totals_by_all_apis["month"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        month_total = 0
+
+    try:
+        total_total = format_dp(zero_value(totals_by_all_apis["total"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        total_total = 0
+    totals_by_all_apis_percentages = {
+        "today": today_total,
+        "week": week_total,
+        "month": month_total,
+        "total": total_total,
+        "unrealized": total_unrealized_percent
+    }
+    balance = totals_by_all_apis["balance"]
+    all_fees = helper_three(all_pos_for_rep["fees"])
+    by_date = helper_by_date_two(all_pos_for_rep["by_date"])
+    by_symbol = helper_two(all_pos_for_rep["by_symbol"])
     fees = {"USDT": 0, "BNB": 0}
     temp_total: tuple[list[float], list[float]] = ([], [])
-    profit_period = balance - zero_value(week)
+    profit_period = balance - zero_value(totals_by_all_apis["week"])
     temp: tuple[list[float], list[float]] = ([], [])
     for each in by_date:
         temp[0].append(round(float(each[1]), 2))
@@ -2350,43 +2476,11 @@ def users_statistic():
         temp[1].append(round(float(each[0]), 2))
     by_symbol = temp
 
-    if balance == 0.0:
-        percentages = ["-", "-", "-", "-"]
-    else:
-        percentages = [
-            format_dp(zero_value(today) / balance * 100),
-            format_dp(zero_value(week) / balance * 100),
-            format_dp(zero_value(month) / balance * 100),
-            format_dp(zero_value(total) / balance * 100),
-        ]
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-    try:
-        unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
-    except Exception as error:
-        unrealized_percent = 0
-    pnl = [
-        format_dp(zero_value(unrealized)),
-        format_dp(balance),
-        unrealized_percent
-    ]
-    totals = [
-        format_dp(zero_value(total)),
-        format_dp(zero_value(today)),
-        format_dp(zero_value(week)),
-        format_dp(zero_value(month)),
-        ranges[3],
-        fees,
-        percentages,
-        pnl,
-        datetime.now().strftime("%B"),
-        zero_value(week),
-        len(by_symbol[0]),
-    ]
 
     active_api_label = get_default_api_label()
-    # users_statistic_list = get_users_statistic(ids=favorites_users)
-    users_statistic_list = __users
+
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2394,8 +2488,18 @@ def users_statistic():
     return render_template(
         "statistic.html",
         is_admin=current_user.is_admin == 1,
+
+        len_by_symbol=len(by_symbol[0]),
+        zero_week=zero_value(totals_by_all_apis["week"]),
+        total_profit_period=zero_value(totals_by_all_apis["week"]),
+
         coin_list=get_coins(active_api_label),
-        totals=totals,
+
+        all_totals=all_totals,
+
+        totals_by_all_apis=totals_by_all_apis,
+        totals_by_all_apis_percentages=totals_by_all_apis_percentages,
+
         data=[by_date, by_symbol, total_by_date],
         timeframe="week",
         startdate=start_date,
@@ -2405,10 +2509,9 @@ def users_statistic():
         api_label_list=get_api_label_list(),
         lastupdate=get_lastupdate(active_api_label),
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        users_statistic=users_statistic_list,
+        users_statistic=users_card_statistic,
         favorites_users=len(favorites.get_user_favorite) > 0
     )
-
 
 @app.route("/users-statistic/<start>/<end>", methods=["GET"])
 @login_required
@@ -2435,12 +2538,11 @@ def users_statistic_page(start, end):
             except Exception:
                 return redirect(url_for("main.users_statistic_page", start=start, end=end))
     try:
-        start_date, end_date = start, end
         start = (datetime.combine(datetime.fromisoformat(start), datetime.min.time()).timestamp() * 1000)
         end = datetime.combine(datetime.fromisoformat(end), datetime.max.time()).timestamp() * 1000
     except Exception:
         start_date, end_date = ranges[2][0], ranges[2][1]
-        return redirect(url_for("main.dashboard_page", start=start_date, end=end_date))
+        return redirect(url_for("main.users_statistic_page", start=start_date, end=end_date))
 
     today_start = (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000)
     today_end = (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
@@ -2461,60 +2563,204 @@ def users_statistic_page(start, end):
         "month": ('SELECT SUM(income) FROM income_model '
                   'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
                   'AND time >= ? AND time <= ?'),
-        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model",
+        "all_fees": 'SELECT SUM(income), asset FROM income_model WHERE incomeType ="COMMISSION" GROUP BY asset',
+        "by_date": 'SELECT DATE(time / 1000, "unixepoch") AS Date, SUM(income) AS inc FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ?  AND time <= ? GROUP BY Date',
+        "by_symbol": 'SELECT SUM(income) AS inc, symbol FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ? GROUP BY symbol ORDER BY inc DESC',
+        "custom_frame": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ?'
     }
-    __users = []
-    balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+
+    start_date, end_date = ranges[2][0], ranges[2][1]
+    users_card_statistic, all_totals, all_apis_info = [], [], []
+    totals_by_all_apis = {
+        "balance": 0,
+        "total": 0,
+        "today": 0,
+        "week": 0,
+        "month": 0,
+        "unrealized": 0
+    }
+    all_pos_for_rep = {
+        "fees": {"USDT": 0, "BNB": 0},
+        "by_symbol": [],
+        "by_date": []
+    }
+    total_profit_period = 0
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
         user_info = get_users_info_by_users_ids_two(user_id=favorite)
-        if len(apis) > 0:
-            balance_user = 0
+        if len(apis) == 0:
+            all_totals.append({
+                "username": user_info["username"],
+                "api_name": "Missing...",
+                "totals": [
+                    format_dp(zero_value(0)),
+                    format_dp(zero_value(0)),
+                    format_dp(zero_value(0)),
+                    format_dp(zero_value(0)),
+                    ranges[3],
+                    {"USDT": 0, "BNB": 0},
+                    ["-", "-", "-", "-"],
+                    [format_dp(zero_value(0)), format_dp(zero_value(0)), format_dp(zero_value(0))],
+                    datetime.now().strftime("%B"),
+                    zero_value(format_dp(zero_value(0))),
+                    0,
+                ]
+            })
+        else:
+            total_binance_balance = 0
             for api in apis:
-                full_api = api + "@" + user_info["username"]
                 try:
-                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
-                    balance += balance_user
-                    total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
-                    today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
-                    week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
-                    month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
-                    unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    full_api = api + "@" + user_info["username"]
+                    balance = zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total_binance_balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                    total = zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
+                    today = zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
+                    week = zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
+                    month = zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
+                    unrealized = zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    all_fees = db_manager.query(full_api, sql["all_fees"])
+                    by_date = db_manager.query(full_api, sql["by_date"], [start, end])
+                    by_symbol = db_manager.query(full_api, sql["by_symbol"], [start, end])
+                    custom_frame = zero_value(db_manager.query(full_api, sql["custom_frame"], [start, end], one=True)[0])
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
-                        "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
-                        "balanceBinance": "%.4f" % zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
+                        "totalIncome": total,
+                        "balanceBinance": "%.4f" % balance
                     })
                 except Exception as error:
-                    balance_user += zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
-                    balance += balance_user
-                    total += zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
-                    today += zero_value(
-                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0]
-                    )
-                    week += zero_value(
-                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0]
-                    )
-                    month += zero_value(
-                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
-                    )
-                    unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+                    balance = zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total_binance_balance += zero_value(
+                        db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                    total = zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0])
+                    today = zero_value(
+                        db_manager.query(api, sql["today"], [today_start, today_end], one=True, user_ids=favorite)[0])
+                    week = zero_value(
+                        db_manager.query(api, sql["week"], [week_start, week_end], one=True, user_ids=favorite)[0])
+                    month = zero_value(
+                        db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0])
+                    unrealized = zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+                    all_fees = db_manager.query(api, sql["all_fees"], user_ids=favorite)
+                    by_date = db_manager.query(api, sql["by_date"], [start, end], user_ids=favorite)
+                    by_symbol = db_manager.query(api, sql["by_symbol"], [start, end], user_ids=favorite)
+                    custom_frame = zero_value(db_manager.query(api, sql["custom_frame"], [start, end], one=True, user_ids=favorite)[0])
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
-                        "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
-                        "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
+                        "totalIncome": total,
+                        "balanceBinance": "%.4f" % balance
                     })
-            user_info["totalBalanceBinance"] = balance_user
-            __users.append(user_info)
-    all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
+                total_profit_period += custom_frame
 
-    by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
-    by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+                totals_by_all_apis["balance"] += balance
+                totals_by_all_apis["total"] += total
+                totals_by_all_apis["today"] += today
+                totals_by_all_apis["week"] += week
+                totals_by_all_apis["month"] += month
+                totals_by_all_apis["unrealized"] += unrealized
+
+                fees = {"USDT": 0, "BNB": 0}
+                balance = float(balance)
+                temptotal: tuple[list[float], list[float]] = ([], [])
+                profit_period = balance - custom_frame
+                temp: tuple[list[float], list[float]] = ([], [])
+                for each in by_date:
+                    temp[0].append(round(float(each[1]), 2))
+                    temp[1].append(each[0])
+                    temptotal[1].append(each[0])
+                    temptotal[0].append(round(profit_period + float(each[1]), 2))
+                    profit_period += float(each[1])
+                    all_pos_for_rep["by_date"] = helper_by_date(dates=each[0], amount=each[1], have_date=all_pos_for_rep["by_date"])
+                temp = ([], [])
+                for each in by_symbol:
+                    temp[0].append(each[1])
+                    temp[1].append(round(float(each[0]), 2))
+                    all_pos_for_rep["by_symbol"] = helper(coin=each[1], amount=each[0], have_coins=all_pos_for_rep["by_symbol"])
+
+                by_symbol = temp
+                if balance == 0.0:
+                    percentages = ["-", "-", "-", "-"]
+                else:
+                    percentages = [
+                        format_dp(zero_value(today) / balance * 100),
+                        format_dp(zero_value(week) / balance * 100),
+                        format_dp(zero_value(month) / balance * 100),
+                        format_dp(zero_value(total) / balance * 100),
+                    ]
+                for row in all_fees:
+                    all_pos_for_rep["fees"][row[1]] += abs(zero_value(row[0]))
+                    fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
+
+                try:
+                    unrealized_percent = "%.2f" % decimals.create_decimal(
+                        zero_value(unrealized) / (zero_value(balance) / 100))
+                except Exception as error:
+                    unrealized_percent = 0
+                pnl = [
+                    format_dp(zero_value(unrealized)),
+                    format_dp(balance),
+                    unrealized_percent
+                ]
+                all_totals.append({
+                    "username": user_info["username"],
+                    "api_name": api,
+                    "totals": [
+                        format_dp(zero_value(total)),
+                        format_dp(zero_value(today)),
+                        format_dp(zero_value(week)),
+                        format_dp(zero_value(month)),
+                        ranges[3],
+                        fees,
+                        percentages,
+                        pnl,
+                        datetime.now().strftime("%B"),
+                        zero_value(week),
+                        len(by_symbol[0]),
+                    ]
+                })
+            user_info["totalBalanceBinance"] = total_binance_balance
+            users_card_statistic.append(user_info)
+    try:
+        total_unrealized_percent = format_dp(decimals.create_decimal(
+            zero_value(totals_by_all_apis["unrealized"]) / (zero_value(totals_by_all_apis["balance"]) / 100)))
+    except Exception as error:
+        total_unrealized_percent = 0
+
+    try:
+        today_total = format_dp(zero_value(totals_by_all_apis["today"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        today_total = 0
+
+    try:
+        week_total = format_dp(zero_value(totals_by_all_apis["week"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        week_total = 0
+
+    try:
+        month_total = format_dp(zero_value(totals_by_all_apis["month"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        month_total = 0
+
+    try:
+        total_total = format_dp(zero_value(totals_by_all_apis["total"]) / totals_by_all_apis["balance"] * 100)
+    except Exception as error:
+        total_total = 0
+
+    totals_by_all_apis_percentages = {
+        "today": today_total,
+        "week": week_total,
+        "month": month_total,
+        "total": total_total,
+        "unrealized": total_unrealized_percent
+    }
+    balance = totals_by_all_apis["balance"]
+    all_fees = helper_three(all_pos_for_rep["fees"])
+
+    by_date = helper_by_date_two(all_pos_for_rep["by_date"])
+    by_symbol = helper_two(all_pos_for_rep["by_symbol"])
 
     fees = {"USDT": 0, "BNB": 0}
     temp_total: tuple[list[float], list[float]] = ([], [])
-    custom_frame = get_custom_frame_by_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
-    profit_period = balance - zero_value(custom_frame)
+    profit_period = balance - zero_value(total_profit_period)
     temp: tuple[list[float], list[float]] = ([], [])
     for each in by_date:
         temp[0].append(round(float(each[1]), 2))
@@ -2524,49 +2770,18 @@ def users_statistic_page(start, end):
         profit_period += float(each[1])
     by_date = temp
     total_by_date = temp_total
+
     temp = ([], [])
     for each in by_symbol:
         temp[0].append(each[1])
         temp[1].append(round(float(each[0]), 2))
     by_symbol = temp
-    if balance == 0.0:
-        percentages = ["-", "-", "-", "-"]
-    else:
-        percentages = [
-            format_dp(zero_value(today) / balance * 100),
-            format_dp(zero_value(week) / balance * 100),
-            format_dp(zero_value(month) / balance * 100),
-            format_dp(zero_value(total) / balance * 100),
-        ]
 
     for row in all_fees:
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
-    try:
-        unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
-    except Exception as error:
-        unrealized_percent = 0
-    pnl = [
-        format_dp(zero_value(unrealized)),
-        format_dp(balance),
-        unrealized_percent
-    ]
-    totals = [
-        format_dp(zero_value(total)),
-        format_dp(zero_value(today)),
-        format_dp(zero_value(week)),
-        format_dp(zero_value(month)),
-        ranges[3],
-        fees,
-        percentages,
-        pnl,
-        datetime.now().strftime("%B"),
-        zero_value(custom_frame),
-        len(by_symbol[0]),
-    ]
 
     active_api_label = get_default_api_label()
-    # users_statistic_list = get_users_statistic(ids=favorites_users)
-    users_statistic_list = __users
+
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
     print(f"User: {current_user.username} | Active: {status}")
@@ -2574,19 +2789,32 @@ def users_statistic_page(start, end):
     return render_template(
         "statistic.html",
         is_admin=current_user.is_admin == 1,
+
+        len_by_symbol=len(by_symbol[0]),
+        zero_week=zero_value(totals_by_all_apis["week"]),
+        total_profit_period=total_profit_period,
+
         coin_list=get_coins(active_api_label),
-        totals=totals,
+
+        all_totals=all_totals,
+
+        totals_by_all_apis=totals_by_all_apis,
+        totals_by_all_apis_percentages=totals_by_all_apis_percentages,
+
         data=[by_date, by_symbol, total_by_date],
-        lastupdate=get_lastupdate(active_api_label),
+        timeframe="week",
         startdate=start_date,
         enddate=end_date,
         timeranges=ranges,
         custom=current_app.config["CUSTOM"],
         api_label_list=get_api_label_list(),
+        lastupdate=get_lastupdate(active_api_label),
         wallet_address=wallet["address"] if wallet["address"] is not None else "Not wallet",
-        users_statistic=users_statistic_list,
+        users_statistic=users_card_statistic,
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
+# <<<-------------------------------------------->>> STATISTIC TWO <<<----------------------------------------------->>>
 
 
 @app.route("/users-statistic-two", methods=["GET"])
@@ -2632,31 +2860,54 @@ def users_statistic_index_two():
         "month": ('SELECT SUM(income) FROM income_model '
                   'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
                   'AND time >= ? AND time <= ?'),
-        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model",
+        "all_fees": 'SELECT SUM(income), asset FROM income_model WHERE incomeType ="COMMISSION" GROUP BY asset',
+        "by_date": 'SELECT DATE(time / 1000, "unixepoch") AS Date, SUM(income) AS inc FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ?  AND time <= ? GROUP BY Date',
+        "by_symbol": 'SELECT SUM(income) AS inc, symbol FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ? GROUP BY symbol ORDER BY inc DESC',
+        "custom_frame": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ?'
     }
+
     start_date, end_date = ranges[2][0], ranges[2][1]
 
     __users = []
     all_totals = []
+    all_pos_for_rep = {
+        "fees": {"USDT": 0, "BNB": 0},
+        "by_symbol": [],
+        "by_date": []
+    }
+    total_balance = 0
+    total_week = 0
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
 
         user_info = get_users_info_by_users_ids_two(user_id=favorite)
         if len(apis) == 0:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
-            user_info["totalBalanceBinance"] = balance
+            one_user_pos_for_rep = {
+                "fees": {"USDT": 0, "BNB": 0},
+                "by_symbol": [],
+                "by_date": []
+            }
         else:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+            one_user_pos_for_rep = {
+                "fees": {"USDT": 0, "BNB": 0},
+                "by_symbol": [],
+                "by_date": []
+            }
             for api in apis:
-                full_api = api + "@" + user_info["username"]
-                print(full_api)
                 try:
+                    full_api = api + "@" + user_info["username"]
                     balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
                     today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    all_fees = db_manager.query(full_api, sql["all_fees"])
+                    by_date = db_manager.query(full_api, sql["by_date"], [start, end])
+                    by_symbol = db_manager.query(full_api, sql["by_symbol"], [start, end])
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
                         "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
@@ -2673,15 +2924,35 @@ def users_statistic_index_two():
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+                    all_fees = db_manager.query(api, sql["all_fees"], user_ids=favorite)
+                    by_date = db_manager.query(api, sql["by_date"], [start, end], user_ids=favorite)
+                    by_symbol = db_manager.query(api, sql["by_symbol"], [start, end], user_ids=favorite)
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
                         "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
                         "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     })
-            user_info["totalBalanceBinance"] = balance
-        all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
-        by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
-        by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
+                for i in by_date:
+                    all_pos_for_rep["by_date"] = helper_by_date(dates=i[0], amount=i[1], have_date=all_pos_for_rep["by_date"])
+                    one_user_pos_for_rep["by_date"] = helper_by_date(dates=i[0], amount=i[1], have_date=one_user_pos_for_rep["by_date"])
+                for j in by_symbol:
+                    all_pos_for_rep["by_symbol"] = helper(coin=j[1], amount=j[0], have_coins=all_pos_for_rep["by_symbol"])
+                    one_user_pos_for_rep["by_symbol"] = helper(coin=j[1], amount=j[0], have_coins=one_user_pos_for_rep["by_symbol"])
+                for k in all_fees:
+                    all_pos_for_rep["fees"][k[1]] += abs(zero_value(k[0]))
+                    one_user_pos_for_rep["fees"][k[1]] += abs(zero_value(k[0]))
+        user_info["totalBalanceBinance"] = balance
+        total_balance += balance
+        total_week += week
+
+        try:
+            all_fees = helper_three(one_user_pos_for_rep["fees"])
+            by_date = helper_by_date_two(one_user_pos_for_rep["by_date"])
+            by_symbol = helper_two(one_user_pos_for_rep["by_symbol"])
+        except Exception as error:
+            all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
+            by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
+            by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
 
         fees = {"USDT": 0, "BNB": 0}
         temp_total: tuple[list[float], list[float]] = ([], [])
@@ -2710,6 +2981,7 @@ def users_statistic_index_two():
             ]
         for row in all_fees:
             fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
+
         try:
             unrealized_percent = "%.2f" % decimals.create_decimal(zero_value(unrealized) / (zero_value(balance) / 100))
         except Exception as error:
@@ -2737,14 +3009,11 @@ def users_statistic_index_two():
             ]
         })
 
-    balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
-    week = get_time_sum_income_by_users_ids(
-        users_ids=tuple(favorites_users), start=int(week_start), end=int(week_end)
-    )
-    all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
-
-    by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
-    by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
+    balance = total_balance
+    week = total_week
+    all_fees = helper_three(all_pos_for_rep["fees"])
+    by_date = helper_by_date_two(all_pos_for_rep["by_date"])
+    by_symbol = helper_two(all_pos_for_rep["by_symbol"])
 
     fees = {"USDT": 0, "BNB": 0}
     temp_total: tuple[list[float], list[float]] = ([], [])
@@ -2769,7 +3038,6 @@ def users_statistic_index_two():
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
     active_api_label = get_default_api_label()
-    # users_statistic_list = get_users_statistic(ids=favorites_users)
     users_statistic_list = __users
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -2797,7 +3065,6 @@ def users_statistic_index_two():
         users_statistic=users_statistic_list,
         favorites_users=len(favorites.get_user_favorite) > 0
     )
-
 
 @app.route("/users-statistic-two/<start>/<end>", methods=["GET"])
 @login_required
@@ -2850,27 +3117,54 @@ def users_statistic_two_page(start, end):
         "month": ('SELECT SUM(income) FROM income_model '
                   'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
                   'AND time >= ? AND time <= ?'),
-        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model"
+        "unrealized": "SELECT SUM(unrealizedProfit) FROM positions_model",
+        "all_fees": 'SELECT SUM(income), asset FROM income_model WHERE incomeType ="COMMISSION" GROUP BY asset',
+        "by_date": 'SELECT DATE(time / 1000, "unixepoch") AS Date, SUM(income) AS inc FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ?  AND time <= ? GROUP BY Date',
+        "by_symbol": 'SELECT SUM(income) AS inc, symbol FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ? GROUP BY symbol ORDER BY inc DESC',
+        "custom_frame": 'SELECT SUM(income) FROM income_model WHERE asset <> "BNB" AND incomeType <> "TRANSFER" AND time >= ? AND time <= ?'
     }
     __users = []
     all_totals = []
+    all_pos_for_rep = {
+        "fees": {"USDT": 0, "BNB": 0},
+        "by_symbol": [],
+        "by_date": []
+    }
+    total_balance = 0
+    total_week = 0
+    total_profit_period = 0
     for favorite in favorites_users:
         apis = get_api_label_by_user_id(favorite)
         user_info = get_users_info_by_users_ids_two(user_id=favorite)
         if len(apis) == 0:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
-            user_info["totalBalanceBinance"] = balance
+            one_user_pos_for_rep = {
+                "fees": {"USDT": 0, "BNB": 0},
+                "by_symbol": [],
+                "by_date": []
+            }
         else:
             balance, total, today, week, month, unrealized = 0, 0, 0, 0, 0, 0
+            one_user_pos_for_rep = {
+                "fees": {"USDT": 0, "BNB": 0},
+                "by_symbol": [],
+                "by_date": []
+            }
             for api in apis:
-                full_api = api + "@" + user_info["username"]
                 try:
+                    full_api = api + "@" + user_info["username"]
                     balance += zero_value(db_manager.query(full_api, sql["balance"], one=True)[0])
                     total += zero_value(db_manager.query(full_api, sql["total"], one=True)[0])
                     today += zero_value(db_manager.query(full_api, sql["today"], [today_start, today_end], one=True)[0])
                     week += zero_value(db_manager.query(full_api, sql["week"], [week_start, week_end], one=True)[0])
                     month += zero_value(db_manager.query(full_api, sql["month"], [month_start, month_end], one=True)[0])
                     unrealized += zero_value(db_manager.query(full_api, sql["unrealized"], one=True)[0])
+                    all_fees = db_manager.query(full_api, sql["all_fees"])
+                    by_date = db_manager.query(full_api, sql["by_date"], [start, end])
+                    by_symbol = db_manager.query(full_api, sql["by_symbol"], [start, end])
+
+                    custom_frame = zero_value(db_manager.query(full_api, sql["custom_frame"], [start, end], one=True)[0])
+
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
                         "totalIncome": zero_value(db_manager.query(full_api, sql["total"], one=True)[0]),
@@ -2888,24 +3182,49 @@ def users_statistic_two_page(start, end):
                     month += zero_value(
                         db_manager.query(api, sql["month"], [month_start, month_end], one=True, user_ids=favorite)[0]
                     )
+                    all_fees = db_manager.query(api, sql["all_fees"], user_ids=favorite)
+                    by_date = db_manager.query(api, sql["by_date"], [start, end], user_ids=favorite)
+                    by_symbol = db_manager.query(api, sql["by_symbol"], [start, end], user_ids=favorite)
                     unrealized += zero_value(db_manager.query(api, sql["unrealized"], one=True, user_ids=favorite)[0])
+
+                    custom_frame = zero_value(db_manager.query(api, sql["custom_frame"], [start, end], one=True, user_ids=favorite)[0])
+
                     user_info["apisLabel"].append({
                         "apiLabelName": api,
                         "totalIncome": zero_value(db_manager.query(api, sql["total"], one=True, user_ids=favorite)[0]),
                         "balanceBinance": "%.4f" % zero_value(db_manager.query(api, sql["balance"], one=True, user_ids=favorite)[0])
                     })
-            user_info["totalBalanceBinance"] = balance
-        all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
-        by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
-        by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
+                total_profit_period += custom_frame
+                for i in by_date:
+                    all_pos_for_rep["by_date"] = helper_by_date(dates=i[0], amount=i[1],
+                                                                have_date=all_pos_for_rep["by_date"])
+                    one_user_pos_for_rep["by_date"] = helper_by_date(dates=i[0], amount=i[1],
+                                                                     have_date=one_user_pos_for_rep["by_date"])
+                for j in by_symbol:
+                    all_pos_for_rep["by_symbol"] = helper(coin=j[1], amount=j[0],
+                                                          have_coins=all_pos_for_rep["by_symbol"])
+                    one_user_pos_for_rep["by_symbol"] = helper(coin=j[1], amount=j[0],
+                                                               have_coins=one_user_pos_for_rep["by_symbol"])
+                for k in all_fees:
+                    all_pos_for_rep["fees"][k[1]] += abs(zero_value(k[0]))
+                    one_user_pos_for_rep["fees"][k[1]] += abs(zero_value(k[0]))
+        user_info["totalBalanceBinance"] = balance
+        total_balance += balance
+        total_week += week
+
+        try:
+            all_fees = helper_three(one_user_pos_for_rep["fees"])
+            by_date = helper_by_date_two(one_user_pos_for_rep["by_date"])
+            by_symbol = helper_two(one_user_pos_for_rep["by_symbol"])
+        except Exception as error:
+            all_fees = get_all_fees_by_users_ids(users_ids=(favorite,))
+            by_date = get_income_by_date_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
+            by_symbol = get_income_by_symbol_and_users_ids(users_ids=(favorite,), start=int(start), end=int(end))
 
         fees = {"USDT": 0, "BNB": 0}
-
         temp_total: tuple[list[float], list[float]] = ([], [])
-
         profit_period = balance - zero_value(week)
         temp: tuple[list[float], list[float]] = ([], [])
-
         for each in by_date:
             temp[0].append(round(float(each[1]), 2))
             temp[1].append(each[0])
@@ -2959,15 +3278,14 @@ def users_statistic_two_page(start, end):
             ]
         })
 
-    balance = get_total_wallet_balance_by_users_ids(users_ids=tuple(favorites_users))
-    all_fees = get_all_fees_by_users_ids(users_ids=tuple(favorites_users))
+    balance = total_balance
+    all_fees = helper_three(all_pos_for_rep["fees"])
+    by_date = helper_by_date_two(all_pos_for_rep["by_date"])
+    by_symbol = helper_two(all_pos_for_rep["by_symbol"])
 
-    by_date = get_income_by_date_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
-    by_symbol = get_income_by_symbol_and_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
     fees = {"USDT": 0, "BNB": 0}
     temp_total: tuple[list[float], list[float]] = ([], [])
-    custom_frame = get_custom_frame_by_users_ids(users_ids=tuple(favorites_users), start=int(start), end=int(end))
-    profit_period = balance - zero_value(custom_frame)
+    profit_period = balance - total_profit_period
     temp: tuple[list[float], list[float]] = ([], [])
     for each in by_date:
         temp[0].append(round(float(each[1]), 2))
@@ -2987,7 +3305,6 @@ def users_statistic_two_page(start, end):
         fees[row[1]] = format_dp(abs(zero_value(row[0])), 4)
 
     active_api_label = get_default_api_label()
-    # users_statistic_list = get_users_statistic(ids=favorites_users)
     users_statistic_list = __users
     wallet = get_wallet_by_user_id(user_id=current_user.id)
     status = is_activate(user_id=current_user.id)
@@ -2997,7 +3314,7 @@ def users_statistic_two_page(start, end):
         is_admin=current_user.is_admin == 1,
 
         len_by_symbol=len(by_symbol[0]),
-        zero_week=zero_value(custom_frame),
+        zero_week=zero_value(total_profit_period),
 
         coin_list=get_coins(active_api_label),
 
@@ -3015,3 +3332,51 @@ def users_statistic_two_page(start, end):
         users_statistic=users_statistic_list,
         favorites_users=len(favorites.get_user_favorite) > 0
     )
+
+# <<<-------------------------------------------->>> Helper <<<------------------------------------------------------>>>
+
+def helper(coin, amount, have_coins):
+    for ha in have_coins:
+        if coin == ha["coin"]:
+            ha["amount"] += amount
+    else:
+        have_coins.append({
+            "coin": coin,
+            "amount": amount,
+        })
+    return have_coins
+
+def helper_two(have_coins):
+    lst = []
+    for value in have_coins:
+        lst.append((
+            value["amount"], value["coin"]
+        ))
+    return lst
+
+def helper_three(fees):
+    lst = []
+    for keys, value in fees.items():
+        lst.append((
+            value, keys
+        ))
+    return lst
+
+def helper_by_date(dates, amount, have_date):
+    for ha in have_date:
+        if dates == ha["data"]:
+            ha["amount"] += amount
+    else:
+        have_date.append({
+            "data": dates,
+            "amount": amount,
+        })
+    return have_date
+
+def helper_by_date_two(have_date):
+    lst = []
+    for value in have_date:
+        lst.append((
+            value["data"], value["amount"]
+        ))
+    return lst
