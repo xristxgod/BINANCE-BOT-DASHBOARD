@@ -10,8 +10,6 @@ from flask import request
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_mail import Mail
-from futuresboard.jobs import register_scheduler
-
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
@@ -24,12 +22,11 @@ def clear_trailing():
     if rp != "/" and rp.endswith("/"):
         return redirect(rp[:-1])
 
-
 def init_app(config):
     from futuresboard import db_manager
-    
-    import futuresboard.scraper
     from futuresboard import blueprint
+    from futuresboard import jobs
+    import futuresboard.scraper
     from futuresboard.config import Config
     if config is None:
         config = Config.from_config_dir(pathlib.Path.cwd())
@@ -38,7 +35,7 @@ def init_app(config):
     app.config.from_mapping(**json.loads(config.json()))
     app.url_map.strict_slashes = False
     db_manager.init_app(app)
-    register_scheduler(app)
+    jobs.register_scheduler(app)
     app.before_request(clear_trailing)
     app.register_blueprint(blueprint.app)
 
