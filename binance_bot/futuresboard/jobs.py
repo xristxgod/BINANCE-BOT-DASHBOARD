@@ -1,5 +1,10 @@
 from flask_apscheduler import APScheduler
-from addition.sripts import debiting_funds, add_ref_info, is_min_balance
+
+from addition.sripts import (
+    debiting_funds,
+    add_ref_info,
+    is_min_balance
+)
 
 def register_scheduler(app):
     ''' Adding a subtask to run at a specific time '''
