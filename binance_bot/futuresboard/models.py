@@ -1,8 +1,14 @@
-
 from futuresboard.db_manager import *
 from futuresboard.app import login_manager, bcrypt
 from flask_login import UserMixin
 
+
+import decimal
+from typing import Union, List
+from datetime import datetime
+from futuresboard.db_manager import query
+from addition.utils import timeranges
+from addition.config import logger
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -152,3 +158,63 @@ class GoogleAuthenticatorModel(db.Model):
     secret_key = db.Column(db.String(32), nullable=False, unique=True)
     qrcodeData = db.Column(db.String(256), nullable=False, unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user_model.id'))
+
+# <<<=============================================>>> Script helper <<<==============================================>>>
+
+class DB:
+    @staticmethod
+    def get_users() -> List[UserModel]:
+        return UserModel.query.filter_by(is_admin=0, status="active").all()
+
+    @staticmethod
+    def get_api_labels_list(user_id: int) -> List[AccountModel]:
+        return AccountModel.query.filter_by(user_id=user_id).all()
+
+    @staticmethod
+    def get_realised_pnl_for_today(api_label: str, user_id: int) -> Union[decimal.Decimal, int, float]:
+        ranges = timeranges()
+        profit_today = query(
+            api_label,
+            (
+                'SELECT SUM(income) FROM income_model '
+                'WHERE asset <> "BNB" AND incomeType <> "TRANSFER" '
+                'AND time >= ? AND time <= ?'
+            ),
+            [
+                (datetime.combine(datetime.fromisoformat(ranges[0][0]), datetime.min.time()).timestamp() * 1000),
+                (datetime.combine(datetime.fromisoformat(ranges[0][1]), datetime.max.time()).timestamp() * 1000)
+            ],
+            user_ids=user_id,
+            one=True
+        )
+        if profit_today[0] is None:
+            return 0
+        else:
+            return profit_today[0]
+
+    @staticmethod
+    def insert_new_withdraw(user: UserModel, profit_today: float) -> bool:
+        logger.error(f"WITHDRAW | USERNAME: {user.username} | WITHDRAW TODAY: {profit_today}")
+        try:
+            withdraw_today = WithdrawModel(
+                time=int(datetime.timestamp(datetime.now())) * 1000,
+                amount=profit_today,
+                user_id=user.id
+            )
+            db.session.add(withdraw_today)
+            db.session.commit()
+            return True
+        except Exception as error:
+            logger.error(f"ERROR: {error}")
+            return False
+
+    @staticmethod
+    def insert_new_balance(user: UserModel, new_balance: float) -> bool:
+        logger.error(f"SET NEW BALANCE| USERNAME: {user.username} | NEW BALANCE: {new_balance}")
+        try:
+            user.budget = new_balance
+            db.session.commit()
+            return True
+        except Exception as error:
+            logger.error(f"ERROR: {error}")
+            return False
